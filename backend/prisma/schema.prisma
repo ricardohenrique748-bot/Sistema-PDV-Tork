@@ -1,0 +1,429 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum RoleUsuario {
+  ADMIN
+  VENDEDOR
+  FINANCEIRO
+}
+
+enum TipoPessoa {
+  FISICA
+  JURIDICA
+}
+
+enum StatusVenda {
+  ORCAMENTO
+  PENDENTE
+  CONCLUIDA
+  CANCELADA
+}
+
+enum StatusOrcamento {
+  PENDENTE
+  APROVADO
+  RECUSADO
+  EXPIRADO
+}
+
+enum StatusNF {
+  DIGITANDO
+  ASSINADA
+  ENVIADA
+  AUTORIZADA
+  CANCELADA
+  DENEGADA
+  ERRO
+}
+
+enum ModeloNF {
+  NFE
+  NFCE
+}
+
+enum FormaPagamento {
+  DINHEIRO
+  CARTAO_CREDITO
+  CARTAO_DEBITO
+  PIX
+  BOLETO
+  CREDIARIO
+}
+
+enum TipoMovimentacao {
+  ENTRADA
+  SAIDA
+  AJUSTE
+}
+
+model Usuario {
+  id         String      @id @default(uuid())
+  nome       String
+  email      String      @unique
+  senha      String
+  role       RoleUsuario @default(VENDEDOR)
+  ativo      Boolean     @default(true)
+  createdAt  DateTime    @default(now())
+  updatedAt  DateTime    @updatedAt
+
+  vendas        Venda[]
+  orcamentos    Orcamento[]
+  notasFiscais  NotaFiscal[]
+  logs          LogAuditoria[]
+
+  @@map("usuarios")
+}
+
+model Empresa {
+  id               String   @id @default(uuid())
+  razaoSocial      String
+  nomeFantasia     String?
+  cnpj             String   @unique
+  inscricaoEstadual String?
+  inscricaoMunicipal String?
+  cnae             String?
+  regimeTributario Int      @default(1) // 1=SN, 2=SN-excesso, 3=Normal
+  logradouro       String
+  numero           String
+  complemento      String?
+  bairro           String
+  municipio        String
+  uf               String
+  cep              String
+  codigoMunicipio  String?
+  telefone         String?
+  email            String?
+  site             String?
+  ambienteNF       Int      @default(2) // 1=Producao, 2=Homologacao
+  apiKeyFiscal     String?
+  createdAt        DateTime @default(now())
+  updatedAt        DateTime @updatedAt
+
+  certificados Certificado[]
+
+  @@map("empresa")
+}
+
+model Certificado {
+  id         String   @id @default(uuid())
+  empresaId  String
+  nome       String
+  pfxBase64  String   // Criptografado AES-256
+  senhaCripto String  // Senha criptografada AES-256
+  validade   DateTime
+  ativo      Boolean  @default(true)
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+
+  empresa Empresa @relation(fields: [empresaId], references: [id])
+
+  @@map("certificados")
+}
+
+model Cliente {
+  id              String     @id @default(uuid())
+  tipoPessoa      TipoPessoa @default(FISICA)
+  nome            String
+  razaoSocial     String?
+  cpf             String?    @unique
+  cnpj            String?    @unique
+  inscricaoEstadual String?
+  email           String?
+  telefone        String?
+  celular         String?
+  logradouro      String?
+  numero          String?
+  complemento     String?
+  bairro          String?
+  municipio       String?
+  uf              String?
+  cep             String?
+  codigoMunicipio String?
+  limiteCredito   Decimal?   @db.Decimal(10, 2)
+  ativo           Boolean    @default(true)
+  observacoes     String?
+  createdAt       DateTime   @default(now())
+  updatedAt       DateTime   @updatedAt
+
+  vendas        Venda[]
+  orcamentos    Orcamento[]
+  notasFiscais  NotaFiscal[]
+
+  @@map("clientes")
+}
+
+model Categoria {
+  id        String   @id @default(uuid())
+  nome      String   @unique
+  descricao String?
+  ativo     Boolean  @default(true)
+  createdAt DateTime @default(now())
+
+  pecas Peca[]
+
+  @@map("categorias")
+}
+
+model Fornecedor {
+  id        String   @id @default(uuid())
+  nome      String
+  cnpj      String?
+  contato   String?
+  telefone  String?
+  email     String?
+  ativo     Boolean  @default(true)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  pecaFornecedores PecaFornecedor[]
+
+  @@map("fornecedores")
+}
+
+model Peca {
+  id               String   @id @default(uuid())
+  codigo           String   @unique
+  codigoBarras     String?
+  nome             String
+  descricao        String?
+  categoriaId      String
+  ncm              String?
+  cest             String?
+  cfop             String   @default("5102")
+  csosn            String   @default("400")  // Simples Nacional
+  cst              String?                   // Lucro Presumido
+  unidade          String   @default("UN")
+  precoCompra      Decimal  @db.Decimal(10, 2)
+  precoVenda       Decimal  @db.Decimal(10, 2)
+  margemLucro      Decimal  @db.Decimal(5, 2)
+  estoqueAtual     Int      @default(0)
+  estoqueMinimo    Int      @default(1)
+  localizacao      String?
+  ativo            Boolean  @default(true)
+  createdAt        DateTime @default(now())
+  updatedAt        DateTime @updatedAt
+
+  categoria        Categoria        @relation(fields: [categoriaId], references: [id])
+  fornecedores     PecaFornecedor[]
+  vendaItens       VendaItem[]
+  orcamentoItens   OrcamentoItem[]
+  movimentacoes    MovimentacaoEstoque[]
+
+  @@map("pecas")
+}
+
+model PecaFornecedor {
+  pecaId       String
+  fornecedorId String
+  precoCompra  Decimal? @db.Decimal(10, 2)
+  principal    Boolean  @default(false)
+
+  peca       Peca       @relation(fields: [pecaId], references: [id])
+  fornecedor Fornecedor @relation(fields: [fornecedorId], references: [id])
+
+  @@id([pecaId, fornecedorId])
+  @@map("peca_fornecedores")
+}
+
+model Venda {
+  id             String       @id @default(uuid())
+  numero         Int          @default(autoincrement())
+  clienteId      String?
+  usuarioId      String
+  status         StatusVenda  @default(PENDENTE)
+  subtotal       Decimal      @db.Decimal(10, 2)
+  desconto       Decimal      @default(0) @db.Decimal(10, 2)
+  total          Decimal      @db.Decimal(10, 2)
+  observacoes    String?
+  createdAt      DateTime     @default(now())
+  updatedAt      DateTime     @updatedAt
+
+  cliente      Cliente?   @relation(fields: [clienteId], references: [id])
+  usuario      Usuario    @relation(fields: [usuarioId], references: [id])
+  itens        VendaItem[]
+  pagamentos   VendaPagamento[]
+  notaFiscal   NotaFiscal?
+  orcamento    Orcamento?
+
+  @@map("vendas")
+}
+
+model VendaItem {
+  id           String   @id @default(uuid())
+  vendaId      String
+  pecaId       String
+  quantidade   Int
+  precoUnitario Decimal @db.Decimal(10, 2)
+  desconto     Decimal  @default(0) @db.Decimal(10, 2)
+  total        Decimal  @db.Decimal(10, 2)
+
+  venda Venda @relation(fields: [vendaId], references: [id], onDelete: Cascade)
+  peca  Peca  @relation(fields: [pecaId], references: [id])
+
+  @@map("venda_itens")
+}
+
+model VendaPagamento {
+  id             String         @id @default(uuid())
+  vendaId        String
+  forma          FormaPagamento
+  valor          Decimal        @db.Decimal(10, 2)
+  parcelas       Int            @default(1)
+  observacoes    String?
+
+  venda Venda @relation(fields: [vendaId], references: [id], onDelete: Cascade)
+
+  @@map("venda_pagamentos")
+}
+
+model Orcamento {
+  id           String          @id @default(uuid())
+  numero       Int             @default(autoincrement())
+  clienteId    String?
+  usuarioId    String
+  status       StatusOrcamento @default(PENDENTE)
+  subtotal     Decimal         @db.Decimal(10, 2)
+  desconto     Decimal         @default(0) @db.Decimal(10, 2)
+  total        Decimal         @db.Decimal(10, 2)
+  validadeDate DateTime
+  observacoes  String?
+  createdAt    DateTime        @default(now())
+  updatedAt    DateTime        @updatedAt
+
+  cliente  Cliente?        @relation(fields: [clienteId], references: [id])
+  usuario  Usuario         @relation(fields: [usuarioId], references: [id])
+  itens    OrcamentoItem[]
+  venda    Venda?          @relation(fields: [vendaId], references: [id])
+  vendaId  String?         @unique
+
+  @@map("orcamentos")
+}
+
+model OrcamentoItem {
+  id            String  @id @default(uuid())
+  orcamentoId   String
+  pecaId        String
+  quantidade    Int
+  precoUnitario Decimal @db.Decimal(10, 2)
+  desconto      Decimal @default(0) @db.Decimal(10, 2)
+  total         Decimal @db.Decimal(10, 2)
+
+  orcamento Orcamento @relation(fields: [orcamentoId], references: [id], onDelete: Cascade)
+  peca      Peca      @relation(fields: [pecaId], references: [id])
+
+  @@map("orcamento_itens")
+}
+
+model NotaFiscal {
+  id              String    @id @default(uuid())
+  vendaId         String?   @unique
+  clienteId       String?
+  usuarioId       String
+  modelo          ModeloNF  @default(NFE)
+  serie           Int       @default(1)
+  numero          Int
+  chaveAcesso     String?   @unique
+  status          StatusNF  @default(DIGITANDO)
+  xmlConteudo     String?   @db.Text
+  xmlPath         String?
+  danfePath       String?
+  protocolo       String?
+  dataEmissao     DateTime  @default(now())
+  dataAutorizacao DateTime?
+  motivoCancelamento String?
+  xMotivo         String?   // Mensagem retorno SEFAZ
+  cStat           Int?      // Código status SEFAZ
+  focusNFeId      String?   // ID na Focus NF-e API
+  ambienteNF      Int       @default(2)
+  totalNF         Decimal   @db.Decimal(10, 2)
+  createdAt       DateTime  @default(now())
+  updatedAt       DateTime  @updatedAt
+
+  venda    Venda?   @relation(fields: [vendaId], references: [id])
+  cliente  Cliente? @relation(fields: [clienteId], references: [id])
+  usuario  Usuario  @relation(fields: [usuarioId], references: [id])
+  itens    NotaFiscalItem[]
+  cce      CartaCorrecao[]
+
+  @@map("notas_fiscais")
+}
+
+model NotaFiscalItem {
+  id            String  @id @default(uuid())
+  notaFiscalId  String
+  pecaId        String?
+  codigo        String
+  descricao     String
+  ncm           String
+  cest          String?
+  cfop          String
+  csosn         String?
+  cst           String?
+  unidade       String
+  quantidade    Decimal @db.Decimal(10, 4)
+  valorUnitario Decimal @db.Decimal(10, 4)
+  valorTotal    Decimal @db.Decimal(10, 2)
+  desconto      Decimal @default(0) @db.Decimal(10, 2)
+  bcIcms        Decimal @default(0) @db.Decimal(10, 2)
+  valorIcms     Decimal @default(0) @db.Decimal(10, 2)
+  aliqIcms      Decimal @default(0) @db.Decimal(5, 2)
+  valorPis      Decimal @default(0) @db.Decimal(10, 2)
+  valorCofins   Decimal @default(0) @db.Decimal(10, 2)
+
+  notaFiscal NotaFiscal @relation(fields: [notaFiscalId], references: [id], onDelete: Cascade)
+
+  @@map("nota_fiscal_itens")
+}
+
+model CartaCorrecao {
+  id           String   @id @default(uuid())
+  notaFiscalId String
+  sequencia    Int      @default(1)
+  correcao     String   @db.Text
+  protocolo    String?
+  status       String   @default("PENDENTE")
+  xmlPath      String?
+  createdAt    DateTime @default(now())
+
+  notaFiscal NotaFiscal @relation(fields: [notaFiscalId], references: [id])
+
+  @@map("cartas_correcao")
+}
+
+model MovimentacaoEstoque {
+  id          String           @id @default(uuid())
+  pecaId      String
+  tipo        TipoMovimentacao
+  quantidade  Int
+  estoqueAnterior Int
+  estoqueAtual    Int
+  motivo      String?
+  referenciaId String?         // vendaId ou outro
+  createdAt   DateTime         @default(now())
+
+  peca Peca @relation(fields: [pecaId], references: [id])
+
+  @@map("movimentacoes_estoque")
+}
+
+model LogAuditoria {
+  id         String   @id @default(uuid())
+  usuarioId  String?
+  acao       String
+  entidade   String
+  entidadeId String?
+  dadosAntes String?  @db.Text
+  dadosDepois String? @db.Text
+  ip         String?
+  createdAt  DateTime @default(now())
+
+  usuario Usuario? @relation(fields: [usuarioId], references: [id])
+
+  @@map("logs_auditoria")
+}

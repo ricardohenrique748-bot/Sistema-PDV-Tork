@@ -1,0 +1,210 @@
+@import "tailwindcss";
+@custom-variant dark (&:where(.dark, .dark *));
+
+@theme {
+  /* Tork Primary — Amber/Yellow */
+  --color-primary-50:  #fffbeb;
+  --color-primary-100: #fef3c7;
+  --color-primary-200: #fde68a;
+  --color-primary-300: #fcd34d;
+  --color-primary-400: #fbbf24;
+  --color-primary-500: #f59e0b;
+  --color-primary-600: #d97706;
+  --color-primary-700: #b45309;
+  --color-primary-800: #92400e;
+  --color-primary-900: #78350f;
+
+  --color-gray-850: #1a1f2e;
+  --color-gray-950: #0d1117;
+
+  --font-sans: 'Inter', system-ui, -apple-system, sans-serif;
+
+  --radius-xl: 1rem;
+  --radius-2xl: 1.5rem;
+}
+
+/* ───────────────── Theme CSS Variables ───────────────── */
+:root {
+  --tork-bg:           #f1f5f9;
+  --tork-surface:      #ffffff;
+  --tork-surface-2:    #f8fafc;
+  --tork-border:       #e2e8f0;
+  --tork-text:         #0f172a;
+  --tork-text-muted:   #64748b;
+  --tork-text-subtle:  #94a3b8;
+  --tork-input-bg:     #f8fafc;
+  --tork-hover:        #f1f5f9;
+  --tork-shadow:       rgba(0,0,0,0.08);
+}
+
+html.dark {
+  --tork-bg:           #0d1117;
+  --tork-surface:      #161b22;
+  --tork-surface-2:    #1c2128;
+  --tork-border:       #30363d;
+  --tork-text:         #e6edf3;
+  --tork-text-muted:   #8b949e;
+  --tork-text-subtle:  #6e7681;
+  --tork-input-bg:     #1c2128;
+  --tork-hover:        #21262d;
+  --tork-shadow:       rgba(0,0,0,0.4);
+}
+
+/* ───────────────── Base ───────────────── */
+@layer base {
+  * {
+    box-sizing: border-box;
+  }
+
+  html {
+    font-family: var(--font-sans);
+    -webkit-font-smoothing: antialiased;
+  }
+
+  body {
+    background: var(--tork-bg);
+    color: var(--tork-text);
+    margin: 0;
+  }
+
+  ::-webkit-scrollbar       { width: 6px; height: 6px; }
+  ::-webkit-scrollbar-track { background: var(--tork-surface); }
+  ::-webkit-scrollbar-thumb {
+    background: var(--tork-border);
+    border-radius: 9999px;
+  }
+  ::-webkit-scrollbar-thumb:hover { background: var(--tork-text-subtle); }
+}
+
+/* ───────────────── Utilities ───────────────── */
+@layer utilities {
+  .glass {
+    background: rgba(255,255,255,0.05);
+    backdrop-filter: blur(10px);
+    border: 1px solid rgba(255,255,255,0.08);
+  }
+
+  .glass-card {
+    background: var(--tork-surface);
+    border: 1px solid var(--tork-border);
+    border-radius: 0.75rem;
+  }
+
+  .text-gradient {
+    background: linear-gradient(135deg, #fbbf24, #f59e0b);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+  }
+
+  .animate-fade-in    { animation: fadeIn  0.3s ease-in-out; }
+  .animate-slide-up   { animation: slideUp 0.3s ease-out; }
+  .animate-pulse-slow { animation: pulse   3s cubic-bezier(0.4,0,0.6,1) infinite; }
+}
+
+@keyframes fadeIn  { from { opacity: 0; }              to { opacity: 1; } }
+@keyframes slideUp { from { opacity: 0; transform: translateY(16px); } to { opacity: 1; transform: translateY(0); } }
+
+/* ───────────────── Inputs ───────────────── */
+input, select, textarea {
+  background: var(--tork-input-bg);
+  border: 1px solid var(--tork-border);
+  color: var(--tork-text);
+  border-radius: 0.5rem;
+}
+
+input:focus, select:focus, textarea:focus {
+  outline: none;
+  ring: 2px;
+  border-color: #f59e0b;
+  box-shadow: 0 0 0 2px rgba(245,158,11,0.3);
+}
+
+input::placeholder, textarea::placeholder {
+  color: var(--tork-text-subtle);
+}
+
+/* ───────────────── Table ───────────────── */
+.tork-table { width: 100%; font-size: 0.875rem; }
+
+.tork-table thead {
+  background: var(--tork-surface-2);
+}
+
+.tork-table thead th {
+  padding: 0.75rem 1rem;
+  text-align: left;
+  font-size: 0.75rem;
+  font-weight: 600;
+  color: var(--tork-text-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+
+.tork-table tbody tr {
+  border-bottom: 1px solid var(--tork-border);
+  transition: background 150ms;
+}
+
+.tork-table tbody tr:hover {
+  background: var(--tork-hover);
+}
+
+.tork-table tbody td {
+  padding: 0.75rem 1rem;
+  color: var(--tork-text-muted);
+}
+
+/* ───────────────── Badges ───────────────── */
+.badge {
+  display: inline-flex;
+  align-items: center;
+  padding: 0.125rem 0.625rem;
+  border-radius: 9999px;
+  font-size: 0.75rem;
+  font-weight: 500;
+}
+
+.badge-success { background: rgba(34,197,94,.15);  color: #22c55e; }
+.badge-warning { background: rgba(245,158,11,.15); color: #f59e0b; }
+.badge-danger  { background: rgba(239,68,68,.15);  color: #ef4444; }
+.badge-info    { background: rgba(59,130,246,.15); color: #60a5fa; }
+.badge-gray    { background: rgba(100,116,139,.15);color: #94a3b8; }
+.badge-purple  { background: rgba(168,85,247,.15); color: #c084fc; }
+
+/* ───────────────── Light-mode overrides for legacy gray classes ───────────────── */
+
+/* Backgrounds */
+html:not(.dark) .bg-gray-950    { background-color: var(--tork-bg)       !important; }
+html:not(.dark) .bg-gray-900    { background-color: var(--tork-surface)   !important; }
+html:not(.dark) .bg-gray-850    { background-color: var(--tork-surface-2) !important; }
+html:not(.dark) .bg-gray-800    { background-color: var(--tork-surface-2) !important; }
+html:not(.dark) .bg-gray-700    { background-color: var(--tork-hover)     !important; }
+html:not(.dark) .bg-gray-600    { background-color: var(--tork-hover)     !important; }
+html:not(.dark) .bg-gray-800\/60 { background-color: var(--tork-surface-2) !important; }
+html:not(.dark) .bg-gray-800\/40 { background-color: var(--tork-hover)    !important; }
+
+/* Borders */
+html:not(.dark) .border-gray-800 { border-color: var(--tork-border) !important; }
+html:not(.dark) .border-gray-700 { border-color: var(--tork-border) !important; }
+html:not(.dark) .border-gray-600 { border-color: var(--tork-border) !important; }
+
+/* Text — inclui text-white que some no fundo claro */
+html:not(.dark) .text-white     { color: var(--tork-text)        !important; }
+html:not(.dark) .text-gray-100  { color: var(--tork-text)        !important; }
+html:not(.dark) .text-gray-200  { color: var(--tork-text)        !important; }
+html:not(.dark) .text-gray-300  { color: var(--tork-text-muted)  !important; }
+html:not(.dark) .text-gray-400  { color: var(--tork-text-muted)  !important; }
+html:not(.dark) .text-gray-500  { color: var(--tork-text-subtle) !important; }
+html:not(.dark) .text-gray-600  { color: var(--tork-text-subtle) !important; }
+
+/* Hover states */
+html:not(.dark) .hover\:bg-gray-800:hover   { background-color: var(--tork-hover) !important; }
+html:not(.dark) .hover\:bg-gray-700:hover   { background-color: var(--tork-hover) !important; }
+html:not(.dark) .hover\:bg-gray-600:hover   { background-color: var(--tork-hover) !important; }
+html:not(.dark) .hover\:text-white:hover    { color: var(--tork-text)             !important; }
+html:not(.dark) .hover\:text-gray-200:hover { color: var(--tork-text)             !important; }
+html:not(.dark) .hover\:border-gray-600:hover { border-color: var(--tork-border)  !important; }
+
+/* Placeholder */
+html:not(.dark) .placeholder-gray-500::placeholder { color: var(--tork-text-subtle) !important; }

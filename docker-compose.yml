@@ -1,0 +1,26 @@
+services:
+  postgres:
+    image: postgres:16-alpine
+    container_name: tork_postgres
+    environment:
+      POSTGRES_USER: tork_user
+      POSTGRES_PASSWORD: tork_pass
+      POSTGRES_DB: torkdb
+    ports:
+      - "5432:5432"
+    volumes:
+      - tork_pgdata:/var/lib/postgresql/data
+    restart: unless-stopped
+
+  redis:
+    image: redis:7-alpine
+    container_name: tork_redis
+    ports:
+      - "6379:6379"
+    volumes:
+      - tork_redisdata:/data
+    restart: unless-stopped
+
+volumes:
+  tork_pgdata:
+  tork_redisdata:

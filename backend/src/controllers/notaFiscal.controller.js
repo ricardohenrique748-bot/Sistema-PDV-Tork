@@ -1,0 +1,160 @@
+const prisma = require('../config/prisma');
+const { emitirNF, consultarStatusNF, cancelarNF } = require('../services/nfe/nfeService');
+const { emitirNotaFiscalJob } = require('../services/queue/nfeQueue');
+const path = require('path');
+const fs = require('fs');
+
+const list = async (req, res, next) => {
+  try {
+    const { status, modelo, clienteId, dataInicio, dataFim, page = 1, limit = 20 } = req.query;
+    const where = {};
+    if (status) where.status = status;
+    if (modelo) where.modelo = modelo;
+    if (clienteId) where.clienteId = clienteId;
+    if (dataInicio || dataFim) {
+      where.createdAt = {};
+      if (dataInicio) where.createdAt.gte = new Date(dataInicio);
+      if (dataFim) where.createdAt.lte = new Date(dataFim + 'T23:59:59');
+    }
+
+    const [data, total] = await Promise.all([
+      prisma.notaFiscal.findMany({
+        where,
+        skip: (Number(page) - 1) * Number(limit),
+        take: Number(limit),
+        orderBy: { createdAt: 'desc' },
+        include: {
+          cliente: { select: { id: true, nome: true, razaoSocial: true, cpf: true, cnpj: true } },
+          usuario: { select: { id: true, nome: true } },
+          venda: { select: { id: true, numero: true, total: true } },
+        }
+      }),
+      prisma.notaFiscal.count({ where }),
+    ]);
+    res.json({ data, total, page: Number(page), limit: Number(limit) });
+  } catch (err) { next(err); }
+};
+
+const getById = async (req, res, next) => {
+  try {
+    const nf = await prisma.notaFiscal.findUnique({
+      where: { id: req.params.id },
+      include: {
+        cliente: true,
+        usuario: { select: { id: true, nome: true } },
+        venda: { include: { itens: { include: { peca: true } }, pagamentos: true } },
+        itens: true,
+        cce: true,
+      }
+    });
+    if (!nf) return res.status(404).json({ error: 'Nota fiscal não encontrada.' });
+    res.json(nf);
+  } catch (err) { next(err); }
+};
+
+const getStatus = async (req, res, next) => {
+  try {
+    const nf = await prisma.notaFiscal.findUnique({
+      where: { id: req.params.id },
+      select: { id: true, status: true, chaveAcesso: true, protocolo: true, xMotivo: true, cStat: true, focusNFeId: true, modelo: true }
+    });
+    if (!nf) return res.status(404).json({ error: 'NF não encontrada.' });
+
+    // Consulta status atualizado na Focus se estiver em processamento
+    if (nf.focusNFeId && (nf.status === 'ENVIADA' || nf.status === 'ASSINADA')) {
+      try {
+        const focusData = await consultarStatusNF(nf.focusNFeId, nf.modelo);
+        const novoStatus = mapearStatusFocus(focusData.status);
+        if (novoStatus !== nf.status) {
+          await prisma.notaFiscal.update({
+            where: { id: req.params.id },
+            data: {
+              status: novoStatus,
+              chaveAcesso: focusData.chave_nfe || nf.chaveAcesso,
+              protocolo: focusData.protocolo || nf.protocolo,
+              xMotivo: focusData.mensagem_sefaz || nf.xMotivo,
+              dataAutorizacao: focusData.data_autorizacao ? new Date(focusData.data_autorizacao) : null,
+            }
+          });
+          return res.json({ ...nf, status: novoStatus, xMotivo: focusData.mensagem_sefaz });
+        }
+      } catch (e) {
+        // Ignora erro de consulta, retorna status atual
+      }
+    }
+    res.json(nf);
+  } catch (err) { next(err); }
+};
+
+const emitir = async (req, res, next) => {
+  try {
+    const nf = await prisma.notaFiscal.findUnique({ where: { id: req.params.id } });
+    if (!nf) return res.status(404).json({ error: 'NF não encontrada.' });
+    if (!['DIGITANDO', 'ERRO'].includes(nf.status)) {
+      return res.status(400).json({ error: `NF com status "${nf.status}" não pode ser emitida.` });
+    }
+
+    const jobId = await emitirNotaFiscalJob(nf.id);
+    res.json({ message: 'NF enfileirada para emissão.', jobId });
+  } catch (err) { next(err); }
+};
+
+const cancelar = async (req, res, next) => {
+  try {
+    const { justificativa } = req.body;
+    if (!justificativa || justificativa.length < 15) {
+      return res.status(400).json({ error: 'Justificativa de cancelamento com mínimo de 15 caracteres.' });
+    }
+    const result = await cancelarNF(req.params.id, justificativa);
+    res.json({ message: 'NF cancelada com sucesso.', data: result });
+  } catch (err) { next(err); }
+};
+
+const downloadXML = async (req, res, next) => {
+  try {
+    const nf = await prisma.notaFiscal.findUnique({ where: { id: req.params.id } });
+    if (!nf) return res.status(404).json({ error: 'NF não encontrada.' });
+    if (!nf.xmlPath && !nf.xmlConteudo) return res.status(404).json({ error: 'XML não disponível.' });
+
+    res.setHeader('Content-Type', 'application/xml');
+    res.setHeader('Content-Disposition', `attachment; filename="nf_${nf.chaveAcesso || nf.id}.xml"`);
+
+    if (nf.xmlConteudo) return res.send(nf.xmlConteudo);
+    res.sendFile(path.resolve(nf.xmlPath));
+  } catch (err) { next(err); }
+};
+
+const cartaCorrecao = async (req, res, next) => {
+  try {
+    const { correcao } = req.body;
+    if (!correcao || correcao.length < 15) {
+      return res.status(400).json({ error: 'Texto da correção deve ter mínimo 15 caracteres.' });
+    }
+    const nf = await prisma.notaFiscal.findUnique({ where: { id: req.params.id } });
+    if (nf?.status !== 'AUTORIZADA') return res.status(400).json({ error: 'Carta de correção só pode ser emitida para NF autorizadas.' });
+
+    const ultima = await prisma.cartaCorrecao.findFirst({
+      where: { notaFiscalId: req.params.id },
+      orderBy: { sequencia: 'desc' }
+    });
+
+    const cce = await prisma.cartaCorrecao.create({
+      data: {
+        notaFiscalId: req.params.id,
+        sequencia: (ultima?.sequencia || 0) + 1,
+        correcao,
+        status: 'PENDENTE',
+      }
+    });
+
+    // TODO: Integrar com Focus para envio real da CC-e
+    res.status(201).json({ message: 'Carta de Correção criada. Envio em processamento.', cce });
+  } catch (err) { next(err); }
+};
+
+function mapearStatusFocus(status) {
+  const { mapearStatusFocus: fn } = require('../services/nfe/nfeService');
+  return fn ? fn(status) : 'ENVIADA';
+}
+
+module.exports = { list, getById, getStatus, emitir, cancelar, downloadXML, cartaCorrecao };

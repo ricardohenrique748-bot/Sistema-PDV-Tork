@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef } from 'react';
-import { Settings, Building2, Shield, Upload, CheckCircle, AlertTriangle, Save, Database, Users, Plus, Pencil, Eye, EyeOff } from 'lucide-react';
+import { Settings, Building2, Shield, Upload, CheckCircle, AlertTriangle, Save, Database, Users, Plus, Pencil, Eye, EyeOff, Search, Loader2 } from 'lucide-react';
 import { Button, Card, PageHeader, Spinner, Input, Modal } from '../../components/ui/index.jsx';
 import { formatDate } from '../../utils/formatters';
 import api from '../../services/api';
@@ -22,6 +22,7 @@ export default function Configuracoes() {
   const [loadingEmpresa, setLoadingEmpresa] = useState(true);
   const [savingEmpresa, setSavingEmpresa] = useState(false);
   const [uploadingCert, setUploadingCert] = useState(false);
+  const [loadingCNPJ, setLoadingCNPJ] = useState(false);
   const [senhaCert, setSenhaCert] = useState('');
   const fileRef = useRef(null);
   const defaultUserForm = { nome: '', email: '', senha: '', role: 'VENDEDOR', ativo: true };
@@ -126,6 +127,67 @@ export default function Configuracoes() {
     }
   };
 
+  // Máscara CNPJ: 00.000.000/0000-00
+  const maskCNPJ = (v) => {
+    const d = v.replace(/\D/g, '').slice(0, 14);
+    return d
+      .replace(/(\d{2})(\d)/, '$1.$2')
+      .replace(/(\d{3})(\d)/, '$1.$2')
+      .replace(/(\d{3})(\d)/, '$1/$2')
+      .replace(/(\d{4})(\d)/, '$1-$2');
+  };
+
+  const buscarCNPJ = async (cnpjRaw) => {
+    const cnpj = cnpjRaw.replace(/\D/g, '');
+    if (cnpj.length !== 14) { toast.error('CNPJ inválido. Digite os 14 dígitos.'); return; }
+    setLoadingCNPJ(true);
+    try {
+      const res = await fetch(`https://brasilapi.com.br/api/cnpj/v1/${cnpj}`);
+      if (!res.ok) throw new Error('CNPJ não encontrado na Receita Federal.');
+      const d = await res.json();
+
+      // Formata CEP: 01001000 → 01001-000
+      const cepFormatado = (d.cep || '').replace(/(\d{5})(\d{3})/, '$1-$2');
+
+      // Formata CNAE: 4530703 → 4530-7/03
+      const cnaeFormatado = d.cnae_fiscal
+        ? String(d.cnae_fiscal).replace(/(\d{4})(\d)(\d{2})/, '$1-$2/$3')
+        : '';
+
+      setEmpresa(prev => ({
+        ...prev,
+        razaoSocial:        d.razao_social || prev.razaoSocial,
+        nomeFantasia:       d.nome_fantasia || prev.nomeFantasia,
+        cnpj:               maskCNPJ(cnpj),
+        logradouro:         d.logradouro || prev.logradouro,
+        numero:             d.numero || prev.numero,
+        complemento:        d.complemento || prev.complemento,
+        bairro:             d.bairro || prev.bairro,
+        municipio:          d.municipio || prev.municipio,
+        uf:                 d.uf || prev.uf,
+        cep:                cepFormatado || prev.cep,
+        telefone:           d.ddd_telefone_1 || prev.telefone,
+        email:              d.email || prev.email,
+        cnae:               cnaeFormatado || prev.cnae,
+        codigoMunicipio:    d.codigo_municipio_ibge ? String(d.codigo_municipio_ibge) : prev.codigoMunicipio,
+      }));
+      toast.success(`Empresa encontrada: ${d.razao_social}`);
+    } catch (err) {
+      toast.error(err.message || 'Erro ao buscar CNPJ.');
+    } finally {
+      setLoadingCNPJ(false);
+    }
+  };
+
+  const handleCNPJChange = (e) => {
+    const masked = maskCNPJ(e.target.value);
+    setE('cnpj', masked);
+    // Busca automática ao completar 14 dígitos
+    if (masked.replace(/\D/g, '').length === 14) {
+      buscarCNPJ(masked);
+    }
+  };
+
   const handleUploadCert = async (e) => {
     const file = e.target.files[0];
     if (!file) return;
@@ -187,7 +249,32 @@ export default function Configuracoes() {
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             <Input label="Razão Social *" value={empresa.razaoSocial} onChange={e => setE('razaoSocial', e.target.value)} className="sm:col-span-2" />
             <Input label="Nome Fantasia" value={empresa.nomeFantasia || ''} onChange={e => setE('nomeFantasia', e.target.value)} />
-            <Input label="CNPJ *" value={empresa.cnpj} onChange={e => setE('cnpj', e.target.value)} placeholder="00.000.000/0000-00" />
+            <div className="space-y-1">
+              <label className="block text-sm font-medium text-gray-300">CNPJ *</label>
+              <div className="flex gap-2">
+                <input
+                  type="text"
+                  value={empresa.cnpj}
+                  onChange={handleCNPJChange}
+                  placeholder="00.000.000/0000-00"
+                  maxLength={18}
+                  className="flex-1 px-3 py-2 bg-gray-800 border border-gray-700 rounded-lg text-gray-100 text-sm focus:outline-none focus:ring-2 focus:ring-primary-500 placeholder-gray-600"
+                />
+                <button
+                  type="button"
+                  onClick={() => buscarCNPJ(empresa.cnpj)}
+                  disabled={loadingCNPJ}
+                  title="Buscar dados do CNPJ"
+                  className="px-3 py-2 bg-primary-600 hover:bg-primary-500 disabled:opacity-50 rounded-lg transition-colors flex items-center gap-1.5 text-white text-sm font-medium"
+                >
+                  {loadingCNPJ
+                    ? <Loader2 size={15} className="animate-spin" />
+                    : <Search size={15} />}
+                  {loadingCNPJ ? 'Buscando...' : 'Buscar'}
+                </button>
+              </div>
+              <p className="text-xs text-gray-500">Digite o CNPJ e os dados serão preenchidos automaticamente.</p>
+            </div>
             <Input label="Inscrição Estadual" value={empresa.inscricaoEstadual || ''} onChange={e => setE('inscricaoEstadual', e.target.value)} />
             <Input label="Inscrição Municipal" value={empresa.inscricaoMunicipal || ''} onChange={e => setE('inscricaoMunicipal', e.target.value)} />
             <Input label="CNAE" value={empresa.cnae || ''} onChange={e => setE('cnae', e.target.value)} placeholder="Ex: 4530-7/03" />

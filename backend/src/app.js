@@ -28,7 +28,30 @@ const app = express();
 // Security
 app.use(helmet({ crossOriginResourcePolicy: { policy: 'cross-origin' } }));
 app.use(cors({
-  origin: [process.env.FRONTEND_URL || 'http://localhost:5173', 'https://sistema-pdv-tork.vercel.app'],
+  origin: function (origin, callback) {
+    // Permite requisições sem origin (ex: Postman, curl)
+    if (!origin) return callback(null, true);
+
+    const allowedOrigins = [
+      'http://localhost:5173',
+      'http://localhost:3000',
+      'https://sistema-pdv-tork.vercel.app',
+    ];
+
+    // Adiciona FRONTEND_URL do ambiente se definido
+    if (process.env.FRONTEND_URL) {
+      allowedOrigins.push(process.env.FRONTEND_URL);
+    }
+
+    // Aceita qualquer URL de preview do Vercel para este projeto
+    const isVercelPreview = /^https:\/\/sistema-pdv-tork-.*\.vercel\.app$/.test(origin);
+
+    if (allowedOrigins.includes(origin) || isVercelPreview) {
+      callback(null, true);
+    } else {
+      callback(new Error(`CORS: Origin não permitida: ${origin}`));
+    }
+  },
   credentials: true,
 }));
 

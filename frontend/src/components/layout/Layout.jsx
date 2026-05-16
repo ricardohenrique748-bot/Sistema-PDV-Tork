@@ -18,8 +18,9 @@ const navItems = [
   { to: '/notas-fiscais',label: 'Notas Fiscais',   icon: Receipt },
   { to: '/clientes',     label: 'Clientes',        icon: Users },
   { to: '/pecas',        label: 'Serviços e Peças', icon: Package },
-  { to: '/relatorios',   label: 'Relatórios',      icon: BarChart3 },
-  { to: '/configuracoes',label: 'Configurações',   icon: Settings },
+  { to: '/relatorios',   label: 'Relatórios',      icon: BarChart3, roles: ['ADMIN', 'FINANCEIRO'] },
+  { to: '/usuarios',     label: 'Usuários',        icon: Users, roles: ['ADMIN'] },
+  { to: '/configuracoes',label: 'Configurações',   icon: Settings, roles: ['ADMIN'] },
 ];
 
 const nivelIcon = {
@@ -147,7 +148,7 @@ export default function Layout() {
         {/* Navigation */}
         <nav className="flex-1 overflow-y-auto py-4 px-3">
           <div className="space-y-0.5">
-            {navItems.map(item => (
+            {navItems.filter(item => !item.roles || item.roles.includes(user?.role)).map(item => (
               <NavLink
                 key={item.to}
                 to={item.to}

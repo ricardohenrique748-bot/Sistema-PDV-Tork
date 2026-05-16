@@ -11,10 +11,19 @@ import Pecas from './pages/Pecas';
 import Vendas from './pages/Vendas';
 import Relatorios from './pages/Relatorios';
 import Configuracoes from './pages/Configuracoes';
+import Usuarios from './pages/Usuarios';
 
 function PrivateRoute({ children }) {
   const isAuthenticated = useAuthStore(s => s.isAuthenticated);
   return isAuthenticated ? children : <Navigate to="/login" replace />;
+}
+
+function RoleRoute({ roles, children }) {
+  const user = useAuthStore(s => s.user);
+  if (!user || !roles.includes(user.role)) {
+    return <Navigate to="/" replace />;
+  }
+  return children;
 }
 
 export default function App() {
@@ -36,8 +45,9 @@ export default function App() {
         <Route path="orcamentos" element={<Orcamentos />} />
         <Route path="pecas" element={<Pecas />} />
         <Route path="vendas" element={<Vendas />} />
-        <Route path="relatorios" element={<Relatorios />} />
-        <Route path="configuracoes" element={<Configuracoes />} />
+        <Route path="relatorios" element={<RoleRoute roles={['ADMIN', 'FINANCEIRO']}><Relatorios /></RoleRoute>} />
+        <Route path="configuracoes" element={<RoleRoute roles={['ADMIN']}><Configuracoes /></RoleRoute>} />
+        <Route path="usuarios" element={<RoleRoute roles={['ADMIN']}><Usuarios /></RoleRoute>} />
       </Route>
       <Route path="*" element={<Navigate to="/" replace />} />
     </Routes>

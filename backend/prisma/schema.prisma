@@ -70,6 +70,7 @@ model Usuario {
   senha      String
   role       RoleUsuario @default(VENDEDOR)
   ativo      Boolean     @default(true)
+  primeiroAcesso Boolean @default(true)
   createdAt  DateTime    @default(now())
   updatedAt  DateTime    @updatedAt
 

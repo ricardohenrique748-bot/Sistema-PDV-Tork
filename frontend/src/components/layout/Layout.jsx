@@ -9,6 +9,7 @@ import { useAuthStore } from '../../store/authStore';
 import { useThemeStore } from '../../store/themeStore';
 import TorkLogo from '../ui/TorkLogo';
 import api from '../../services/api';
+import ChangePasswordModal from '../ui/ChangePasswordModal';
 
 const navItems = [
   { to: '/',             label: 'Dashboard',      icon: LayoutDashboard, exact: true },
@@ -103,6 +104,8 @@ export default function Layout() {
       className="flex h-screen overflow-hidden"
       style={{ background: 'var(--tork-bg)' }}
     >
+      {user?.primeiroAcesso && <ChangePasswordModal />}
+
       {/* Sidebar overlay — mobile */}
       {sidebarOpen && (
         <div

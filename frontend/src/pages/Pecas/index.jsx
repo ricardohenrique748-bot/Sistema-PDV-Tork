@@ -183,12 +183,7 @@ export default function Pecas() {
       <PageHeader
         title="Serviços e Peças"
         subtitle={`${total} itens cadastrados`}
-        action={
-          <div className="flex gap-2">
-            <Button onClick={() => openNew('PECA')}><Plus size={16} /> Nova Peça</Button>
-            <Button variant="outline" onClick={() => openNew('SERVICO')}><Plus size={16} /> Novo Serviço</Button>
-          </div>
-        }
+        action={<Button onClick={() => openNew('PECA')}><Plus size={16} /> Novo Cadastro</Button>}
       />
 
       <Card className="p-4">

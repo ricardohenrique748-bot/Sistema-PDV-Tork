@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { Search, Plus, Minus, Trash2, ShoppingCart, User, Tag, FileText, X } from 'lucide-react';
+import { Search, Plus, Minus, Trash2, ShoppingCart, User, Tag, FileText, X, MessageSquare } from 'lucide-react';
 import { Button, Card, Spinner } from '../../components/ui/index.jsx';
 import { formatCurrency, formatCPF, formatCNPJ } from '../../utils/formatters';
 import { useCartStore } from '../../store/cartStore';
@@ -21,6 +21,7 @@ export default function PDV() {
 
   const [tipoDesconto, setTipoDesconto] = useState('VALOR');
   const [descontoInput, setDescontoInput] = useState('');
+  const [observacoes, setObservacoes] = useState('');
   const [salvando, setSalvando] = useState(false);
 
   const {
@@ -93,9 +94,11 @@ export default function PDV() {
         desconto: Number(descontoInput) || 0,
         tipoDesconto,
         validadeDias: 7,
+        observacoes: observacoes || null,
       });
       toast.success('Orçamento salvo com sucesso!');
       clearCart();
+      setObservacoes('');
       navigate('/orcamentos');
     } catch (err) {
       toast.error(err.response?.data?.error || 'Erro ao salvar orçamento.');
@@ -328,6 +331,20 @@ export default function PDV() {
                 className="flex-1 px-3 py-2 bg-gray-800 border border-gray-700 rounded-lg text-gray-100 text-sm focus:outline-none focus:ring-2 focus:ring-primary-500"
               />
             </div>
+          </Card>
+
+          {/* Observação */}
+          <Card>
+            <h3 className="text-sm font-semibold text-gray-300 mb-3 flex items-center gap-2">
+              <MessageSquare size={14} /> Observação
+            </h3>
+            <textarea
+              value={observacoes}
+              onChange={e => setObservacoes(e.target.value)}
+              rows={3}
+              placeholder="Ex: cliente solicitou troca de óleo..."
+              className="w-full px-3 py-2 bg-gray-800 border border-gray-700 rounded-lg text-gray-100 text-sm placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-primary-500 resize-none"
+            />
           </Card>
 
           {/* Totais */}

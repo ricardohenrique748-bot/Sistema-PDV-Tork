@@ -15,10 +15,9 @@ function getQueue() {
       }
     });
 
-    // Processor
     nfeQueue.process(async (job) => {
-      const { nfeService } = require('../nfe/nfeService');
-      return await nfeService.emitirNF(job.data.notaFiscalId);
+      const { emitirNF } = require('../nfe/nfeService');
+      return await emitirNF(job.data.notaFiscalId);
     });
 
     nfeQueue.on('completed', (job) => {

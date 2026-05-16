@@ -56,32 +56,9 @@ const getStatus = async (req, res, next) => {
   try {
     const nf = await prisma.notaFiscal.findUnique({
       where: { id: req.params.id },
-      select: { id: true, status: true, chaveAcesso: true, protocolo: true, xMotivo: true, cStat: true, focusNFeId: true, modelo: true }
+      select: { id: true, status: true, chaveAcesso: true, protocolo: true, xMotivo: true, cStat: true, modelo: true }
     });
     if (!nf) return res.status(404).json({ error: 'NF não encontrada.' });
-
-    // Consulta status atualizado na Focus se estiver em processamento
-    if (nf.focusNFeId && (nf.status === 'ENVIADA' || nf.status === 'ASSINADA')) {
-      try {
-        const focusData = await consultarStatusNF(nf.focusNFeId, nf.modelo);
-        const novoStatus = mapearStatusFocus(focusData.status);
-        if (novoStatus !== nf.status) {
-          await prisma.notaFiscal.update({
-            where: { id: req.params.id },
-            data: {
-              status: novoStatus,
-              chaveAcesso: focusData.chave_nfe || nf.chaveAcesso,
-              protocolo: focusData.protocolo || nf.protocolo,
-              xMotivo: focusData.mensagem_sefaz || nf.xMotivo,
-              dataAutorizacao: focusData.data_autorizacao ? new Date(focusData.data_autorizacao) : null,
-            }
-          });
-          return res.json({ ...nf, status: novoStatus, xMotivo: focusData.mensagem_sefaz });
-        }
-      } catch (e) {
-        // Ignora erro de consulta, retorna status atual
-      }
-    }
     res.json(nf);
   } catch (err) { next(err); }
 };
@@ -151,10 +128,5 @@ const cartaCorrecao = async (req, res, next) => {
     res.status(201).json({ message: 'Carta de Correção criada. Envio em processamento.', cce });
   } catch (err) { next(err); }
 };
-
-function mapearStatusFocus(status) {
-  const { mapearStatusFocus: fn } = require('../services/nfe/nfeService');
-  return fn ? fn(status) : 'ENVIADA';
-}
 
 module.exports = { list, getById, getStatus, emitir, cancelar, downloadXML, cartaCorrecao };

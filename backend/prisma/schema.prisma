@@ -194,7 +194,7 @@ model Peca {
   codigoBarras     String?
   nome             String
   descricao        String?
-  categoriaId      String
+  categoriaId      String?
   ncm              String?
   cest             String?
   cfop             String   @default("5102")
@@ -211,7 +211,7 @@ model Peca {
   createdAt        DateTime @default(now())
   updatedAt        DateTime @updatedAt
 
-  categoria        Categoria        @relation(fields: [categoriaId], references: [id])
+  categoria        Categoria?       @relation(fields: [categoriaId], references: [id])
   fornecedores     PecaFornecedor[]
   vendaItens       VendaItem[]
   orcamentoItens   OrcamentoItem[]

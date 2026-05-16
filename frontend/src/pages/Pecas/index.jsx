@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect } from 'react';
 import { Package, Wrench, Plus, Edit, Trash2, AlertTriangle, TrendingUp, TrendingDown, Layers } from 'lucide-react';
 import {
   Button, Card, PageHeader, Spinner, Modal, EmptyState, Pagination, SearchInput, Input
@@ -9,7 +9,7 @@ import toast from 'react-hot-toast';
 
 const defaultForm = {
   tipo: 'PECA',
-  codigo: '', codigoBarras: '', nome: '', descricao: '', categoriaId: '',
+  codigo: '', codigoBarras: '', nome: '', descricao: '',
   ncm: '', cest: '', cfop: '5102', csosn: '400', unidade: 'UN',
   precoCompra: '', precoVenda: '', estoqueAtual: 0, estoqueMinimo: 1,
   localizacao: '',
@@ -17,12 +17,10 @@ const defaultForm = {
 
 export default function Pecas() {
   const [pecas, setPecas] = useState([]);
-  const [categorias, setCategoriasState] = useState([]);
   const [loading, setLoading] = useState(true);
   const [total, setTotal] = useState(0);
   const [page, setPage] = useState(1);
   const [search, setSearch] = useState('');
-  const [filtroCategoria, setFiltroCategoria] = useState('');
   const [filtroTipo, setFiltroTipo] = useState('');
   const [filtroEstoqueMinimo, setFiltroEstoqueMinimo] = useState(false);
   const [refresh, setRefresh] = useState(0);
@@ -36,7 +34,6 @@ export default function Pecas() {
   const [ajusteTipo, setAjusteTipo] = useState('ENTRADA');
   const [ajusteMotivo, setAjusteMotivo] = useState('');
   const [ajustando, setAjustando] = useState(false);
-  const categoriasLoaded = useRef(false);
 
   useEffect(() => {
     let cancelled = false;
@@ -44,21 +41,12 @@ export default function Pecas() {
       setLoading(true);
       try {
         const params = { search, page, limit: 15 };
-        if (filtroCategoria) params.categoria = filtroCategoria;
         if (filtroTipo) params.tipo = filtroTipo;
         if (filtroEstoqueMinimo) params.estoqueMinimo = 'true';
-
-        const requests = [api.get('/pecas', { params })];
-        if (!categoriasLoaded.current) requests.push(api.get('/categorias'));
-
-        const results = await Promise.all(requests);
+        const { data } = await api.get('/pecas', { params });
         if (!cancelled) {
-          setPecas(results[0].data.data || []);
-          setTotal(results[0].data.total || 0);
-          if (!categoriasLoaded.current && results[1]) {
-            setCategoriasState(results[1].data.data || []);
-            categoriasLoaded.current = true;
-          }
+          setPecas(data.data || []);
+          setTotal(data.total || 0);
         }
       } catch {
         if (!cancelled) toast.error('Erro ao carregar itens.');
@@ -68,7 +56,7 @@ export default function Pecas() {
     };
     run();
     return () => { cancelled = true; };
-  }, [search, page, filtroCategoria, filtroTipo, filtroEstoqueMinimo, refresh]);
+  }, [search, page, filtroTipo, filtroEstoqueMinimo, refresh]);
 
   const openNew = async (tipo = 'PECA') => {
     const unidade = tipo === 'SERVICO' ? 'HR' : 'UN';
@@ -83,7 +71,7 @@ export default function Pecas() {
   };
 
   const openEdit = (p) => {
-    setForm({ ...defaultForm, ...p, categoriaId: p.categoriaId || '' });
+    setForm({ ...defaultForm, ...p });
     setEditingId(p.id);
     setShowModal(true);
   };
@@ -112,7 +100,7 @@ export default function Pecas() {
 
   const handleSave = async () => {
     const isPeca = form.tipo === 'PECA';
-    if (!form.codigo || !form.nome || !form.categoriaId || !form.precoVenda || (isPeca && !form.precoCompra)) {
+    if (!form.codigo || !form.nome || !form.precoVenda || (isPeca && !form.precoCompra)) {
       toast.error('Preencha todos os campos obrigatórios.');
       return;
     }
@@ -200,14 +188,6 @@ export default function Pecas() {
             <option value="PECA">Somente Peças</option>
             <option value="SERVICO">Somente Serviços</option>
           </select>
-          <select
-            value={filtroCategoria}
-            onChange={e => { setFiltroCategoria(e.target.value); setPage(1); }}
-            className="bg-gray-800 border border-gray-700 rounded-lg text-gray-300 text-sm px-3 py-2"
-          >
-            <option value="">Todas as categorias</option>
-            {categorias.map(c => <option key={c.id} value={c.id}>{c.nome}</option>)}
-          </select>
           <label className="flex items-center gap-2 cursor-pointer text-sm text-gray-300">
             <input type="checkbox" checked={filtroEstoqueMinimo} onChange={e => { setFiltroEstoqueMinimo(e.target.checked); setPage(1); }} />
             <AlertTriangle size={14} className="text-yellow-400" /> Estoque baixo
@@ -227,7 +207,6 @@ export default function Pecas() {
                 <thead>
                   <tr>
                     <th>Item</th>
-                    <th>Categoria</th>
                     <th>Preço Compra / Custo</th>
                     <th>Preço Venda</th>
                     <th>Margem</th>
@@ -248,9 +227,6 @@ export default function Pecas() {
                             <p className="text-xs text-gray-500">{p.codigo}{p.codigoBarras && ` · ${p.codigoBarras}`}</p>
                           </div>
                         </div>
-                      </td>
-                      <td>
-                        <span className="badge badge-info">{p.categoria?.nome}</span>
                       </td>
                       <td className="text-sm text-gray-400">
                         {p.tipo === 'SERVICO' && Number(p.precoCompra) === 0 ? '—' : formatCurrency(p.precoCompra)}
@@ -331,17 +307,6 @@ export default function Pecas() {
               className={isServico ? 'col-span-2' : 'col-span-2'}
             />
 
-            <div className="space-y-1">
-              <label className="block text-sm font-medium text-gray-300">Categoria *</label>
-              <select
-                value={form.categoriaId}
-                onChange={e => setF('categoriaId', e.target.value)}
-                className="w-full px-3 py-2 bg-gray-800 border border-gray-700 rounded-lg text-gray-300 text-sm"
-              >
-                <option value="">Selecione...</option>
-                {categorias.map(c => <option key={c.id} value={c.id}>{c.nome}</option>)}
-              </select>
-            </div>
             <Input
               label="Unidade"
               value={form.unidade}

@@ -16,7 +16,7 @@ const navItems = [
   { to: '/orcamentos',   label: 'Orçamentos',      icon: FileText },
   { to: '/notas-fiscais',label: 'Notas Fiscais',   icon: Receipt },
   { to: '/clientes',     label: 'Clientes',        icon: Users },
-  { to: '/pecas',        label: 'Peças / Estoque', icon: Package },
+  { to: '/pecas',        label: 'Serviços e Peças', icon: Package },
   { to: '/relatorios',   label: 'Relatórios',      icon: BarChart3 },
   { to: '/configuracoes',label: 'Configurações',   icon: Settings },
 ];

@@ -189,6 +189,7 @@ model Fornecedor {
 
 model Peca {
   id               String   @id @default(uuid())
+  tipo             String   @default("PECA")
   codigo           String   @unique
   codigoBarras     String?
   nome             String

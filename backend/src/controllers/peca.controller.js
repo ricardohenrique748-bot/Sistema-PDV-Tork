@@ -1,10 +1,29 @@
 const prisma = require('../config/prisma');
 
+const nextCode = async (req, res, next) => {
+  try {
+    const tipo = req.query.tipo === 'SERVICO' ? 'SERVICO' : 'PECA';
+    const prefix = tipo === 'SERVICO' ? 'SRV' : 'PCA';
+    const last = await prisma.peca.findFirst({
+      where: { codigo: { startsWith: `${prefix}-` } },
+      orderBy: { codigo: 'desc' },
+      select: { codigo: true },
+    });
+    let nextNum = 1;
+    if (last) {
+      const num = parseInt(last.codigo.split('-').pop(), 10);
+      if (!isNaN(num)) nextNum = num + 1;
+    }
+    res.json({ codigo: `${prefix}-${String(nextNum).padStart(4, '0')}` });
+  } catch (err) { next(err); }
+};
+
 const list = async (req, res, next) => {
   try {
-    const { search, categoria, estoqueMinimo, page = 1, limit = 20, all } = req.query;
+    const { search, categoria, tipo, estoqueMinimo, page = 1, limit = 20, all } = req.query;
     const where = { ativo: true };
     if (categoria) where.categoriaId = categoria;
+    if (tipo) where.tipo = tipo;
     if (estoqueMinimo === 'true') where.estoqueAtual = { lte: prisma.peca.fields?.estoqueMinimo };
     if (search) {
       where.OR = [
@@ -62,12 +81,18 @@ const getById = async (req, res, next) => {
   } catch (err) { next(err); }
 };
 
+const calcMargem = (compra, venda) => {
+  const c = Number(compra) || 0;
+  const v = Number(venda) || 0;
+  if (c <= 0) return 100;
+  return (((v - c) / c) * 100).toFixed(2);
+};
+
 const create = async (req, res, next) => {
   try {
     const { fornecedores, ...data } = req.body;
-    // Calcula margem automaticamente
-    if (data.precoCompra && data.precoVenda) {
-      data.margemLucro = (((Number(data.precoVenda) - Number(data.precoCompra)) / Number(data.precoCompra)) * 100).toFixed(2);
+    if (data.precoVenda) {
+      data.margemLucro = calcMargem(data.precoCompra, data.precoVenda);
     }
     const peca = await prisma.peca.create({
       data: {
@@ -85,8 +110,8 @@ const create = async (req, res, next) => {
 const update = async (req, res, next) => {
   try {
     const { fornecedores, ...data } = req.body;
-    if (data.precoCompra && data.precoVenda) {
-      data.margemLucro = (((Number(data.precoVenda) - Number(data.precoCompra)) / Number(data.precoCompra)) * 100).toFixed(2);
+    if (data.precoVenda) {
+      data.margemLucro = calcMargem(data.precoCompra, data.precoVenda);
     }
     const peca = await prisma.peca.update({
       where: { id: req.params.id },
@@ -146,4 +171,4 @@ const getEstoqueBaixo = async (req, res, next) => {
   } catch (err) { next(err); }
 };
 
-module.exports = { list, getById, create, update, remove, ajustarEstoque, getEstoqueBaixo };
+module.exports = { nextCode, list, getById, create, update, remove, ajustarEstoque, getEstoqueBaixo };

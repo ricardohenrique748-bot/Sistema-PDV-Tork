@@ -5,6 +5,7 @@ const { authenticate } = require('../middlewares/auth');
 
 router.use(authenticate);
 router.get('/', ctrl.list);
+router.get('/nextcode', ctrl.nextCode);
 router.get('/estoque-baixo', ctrl.getEstoqueBaixo);
 router.get('/:id', ctrl.getById);
 router.post('/', ctrl.create);

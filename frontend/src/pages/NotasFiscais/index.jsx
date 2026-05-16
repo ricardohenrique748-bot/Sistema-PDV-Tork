@@ -219,11 +219,38 @@ export default function NotasFiscais() {
                               <FileEdit size={12} />
                             </Button>
                           )}
-                          {/* XML Download */}
+                          {/* XML e PDF Download */}
                           {nf.status === 'AUTORIZADA' && (
-                            <Button size="sm" variant="ghost" onClick={() => window.open(`/api/notas-fiscais/${nf.id}/xml`, '_blank')} title="Download XML">
-                              <Download size={12} />
-                            </Button>
+                            <>
+                              <Button size="sm" variant="ghost" onClick={async () => {
+                                try {
+                                  const response = await api.get(`/notas-fiscais/${nf.id}/xml`, { responseType: 'blob' });
+                                  const url = window.URL.createObjectURL(new Blob([response.data]));
+                                  const link = document.createElement('a');
+                                  link.href = url;
+                                  link.setAttribute('download', `nf_${nf.chaveAcesso || nf.id}.xml`);
+                                  document.body.appendChild(link);
+                                  link.click();
+                                  link.remove();
+                                } catch (e) { toast.error('Erro ao baixar XML'); }
+                              }} title="Download XML">
+                                <Download size={12} /> XML
+                              </Button>
+                              <Button size="sm" variant="ghost" onClick={async () => {
+                                try {
+                                  const response = await api.get(`/notas-fiscais/${nf.id}/pdf`, { responseType: 'blob' });
+                                  const url = window.URL.createObjectURL(new Blob([response.data], { type: 'application/pdf' }));
+                                  const link = document.createElement('a');
+                                  link.href = url;
+                                  link.setAttribute('download', `danfe_${nf.chaveAcesso || nf.id}.pdf`);
+                                  document.body.appendChild(link);
+                                  link.click();
+                                  link.remove();
+                                } catch (e) { toast.error('Erro ao baixar PDF'); }
+                              }} title="Download PDF">
+                                <Download size={12} /> PDF
+                              </Button>
+                            </>
                           )}
                         </div>
                       </td>

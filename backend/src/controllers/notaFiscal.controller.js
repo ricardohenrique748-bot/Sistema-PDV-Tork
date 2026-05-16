@@ -129,4 +129,33 @@ const cartaCorrecao = async (req, res, next) => {
   } catch (err) { next(err); }
 };
 
-module.exports = { list, getById, getStatus, emitir, cancelar, downloadXML, cartaCorrecao };
+const downloadPDF = async (req, res, next) => {
+  try {
+    const nf = await prisma.notaFiscal.findUnique({ where: { id: req.params.id } });
+    if (!nf) return res.status(404).json({ error: 'NF não encontrada.' });
+
+    let xml = nf.xmlConteudo;
+    if (!xml && nf.xmlPath) {
+      if (fs.existsSync(path.resolve(nf.xmlPath))) {
+        xml = fs.readFileSync(path.resolve(nf.xmlPath), 'utf8');
+      }
+    }
+
+    if (!xml) return res.status(404).json({ error: 'XML não disponível para gerar PDF.' });
+
+    const { DANFe, DANFCe } = require('node-sped-pdf');
+    let pdfBuffer;
+    
+    if (nf.modelo === 'NFE') {
+      pdfBuffer = await DANFe({ xml });
+    } else {
+      pdfBuffer = await DANFCe({ xml });
+    }
+
+    res.setHeader('Content-Type', 'application/pdf');
+    res.setHeader('Content-Disposition', `attachment; filename="danfe_${nf.chaveAcesso || nf.id}.pdf"`);
+    res.send(pdfBuffer);
+  } catch (err) { next(err); }
+};
+
+module.exports = { list, getById, getStatus, emitir, cancelar, downloadXML, downloadPDF, cartaCorrecao };

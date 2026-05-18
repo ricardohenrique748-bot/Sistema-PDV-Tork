@@ -17,6 +17,8 @@ function createHttpsAgent(pfxBuffer, senha) {
     cert: certPem,
     key: privateKeyPem,
     rejectUnauthorized: false, // Em homologação às vezes a cadeia da SEFAZ não é reconhecida
+    secureProtocol: 'TLSv1_2_method',
+    ciphers: 'DEFAULT:@SECLEVEL=1'
   });
 }
 
@@ -68,14 +70,15 @@ async function enviarSoap(url, soapAction, xmlCorpo, pfxBuffer, senha, ufCode) {
  * @param {string} senhaCripto Senha criptografada
  * @param {string} uf Sigla da UF (ex: SP)
  * @param {number} ambiente 1=Producao, 2=Homologacao
+ * @param {string} modelo 'NFE' ou 'NFCE'
  */
-async function autorizarNFe(xmlAssinado, pfxBase64Cripto, senhaCripto, uf, ambiente) {
+async function autorizarNFe(xmlAssinado, pfxBase64Cripto, senhaCripto, uf, ambiente, modelo = 'NFE') {
   const pfxBase64 = decrypt(pfxBase64Cripto);
   const senha = decrypt(senhaCripto);
   const pfxBuffer = Buffer.from(pfxBase64, 'base64');
   
   const ufCode = getUFCode(uf);
-  const urls = getUrls(uf, ambiente);
+  const urls = getUrls(uf, ambiente, modelo);
 
   // Monta o lote enviando apenas 1 NF (síncrono)
   // idLote pode ser qualquer numero único, vamos usar um timestamp simples

@@ -137,24 +137,45 @@ const NFE_URLS = {
 // Estados atendidos pelo SVRS (RS)
 const SVRS_STATES = ['AC','AL','AP','CE','DF','ES','MA','MS','MT','PA','PB','PE','PI','RJ','RN','RO','RR','SC','SE','TO'];
 
+const NFCE_URLS = {
+  SP: {
+    homologacao: {
+      autorizacao: 'https://homologacao.nfce.fazenda.sp.gov.br/ws/nfeautorizacao4.asmx',
+    },
+    producao: {
+      autorizacao: 'https://nfce.fazenda.sp.gov.br/ws/nfeautorizacao4.asmx',
+    }
+  },
+  RS: { // SVRS (Maranhão usa SVRS para NFCe também)
+    homologacao: {
+      autorizacao: 'https://nfce-homologacao.svrs.rs.gov.br/ws/NfeAutorizacao/NFeAutorizacao4.asmx',
+    },
+    producao: {
+      autorizacao: 'https://nfce.svrs.rs.gov.br/ws/NfeAutorizacao/NFeAutorizacao4.asmx',
+    }
+  }
+};
+
 /**
  * Retorna as URLs do webservice para uma UF e ambiente específicos
  */
-function getUrls(uf, ambiente) {
+function getUrls(uf, ambiente, modelo = 'NFE') {
   const ambiKey = ambiente === 1 ? 'producao' : 'homologacao';
   const ufUpper = (uf || 'SP').toUpperCase();
 
-  if (NFE_URLS[ufUpper]) {
-    return NFE_URLS[ufUpper][ambiKey];
+  const baseUrls = modelo === 'NFCE' ? NFCE_URLS : NFE_URLS;
+
+  if (baseUrls[ufUpper]) {
+    return baseUrls[ufUpper][ambiKey];
   }
 
   // Estados atendidos pelo SVRS (RS)
   if (SVRS_STATES.includes(ufUpper)) {
-    return NFE_URLS.RS[ambiKey];
+    return baseUrls.RS ? baseUrls.RS[ambiKey] : NFE_URLS.RS[ambiKey];
   }
 
   // Fallback: SP
-  return NFE_URLS.SP[ambiKey];
+  return baseUrls.SP ? baseUrls.SP[ambiKey] : NFE_URLS.SP[ambiKey];
 }
 
 /**

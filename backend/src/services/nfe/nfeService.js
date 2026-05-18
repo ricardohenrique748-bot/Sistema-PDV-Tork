@@ -60,7 +60,8 @@ async function emitirNF(notaFiscalId) {
       certAtivo.pfxBase64,
       certAtivo.senhaCripto,
       empresa.uf,
-      empresa.ambienteNF
+      empresa.ambienteNF,
+      nf.modelo
     );
 
     // 5. Analisa a resposta

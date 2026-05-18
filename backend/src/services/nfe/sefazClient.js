@@ -9,13 +9,14 @@ const { extrairDoPfx } = require('./xmlSigner');
 const { decrypt } = require('../certificate/certService');
 
 /**
- * Cria um agente HTTPS configurado com o certificado cliente para autenticação mútua TLS (mTLS)
+ * Cria um agente HTTPS usando PEM extraído via node-forge (evita "Unsupported PKCS12 PFX data")
  */
 function createHttpsAgent(pfxBuffer, senha) {
+  const { privateKeyPem, certPem } = extrairDoPfx(pfxBuffer, senha);
   return new https.Agent({
-    pfx: pfxBuffer,
-    passphrase: senha,
-    rejectUnauthorized: false, // Em homologação às vezes a cadeia da SEFAZ não é reconhecida
+    key: privateKeyPem,
+    cert: certPem,
+    rejectUnauthorized: false,
     secureProtocol: 'TLSv1_2_method',
     ciphers: 'DEFAULT:@SECLEVEL=1'
   });

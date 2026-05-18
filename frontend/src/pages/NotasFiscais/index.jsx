@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useCallback } from 'react';
-import { Receipt, Search, Filter, Download, Send, XCircle, Eye, RefreshCw, FileEdit } from 'lucide-react';
+import { Receipt, Search, Filter, Download, Send, XCircle, Eye, RefreshCw, FileEdit, Trash2 } from 'lucide-react';
 import {
   Button, Card, SearchInput, PageHeader, Spinner, Badge, Modal, EmptyState, Pagination
 } from '../../components/ui/index.jsx';
@@ -90,6 +90,20 @@ export default function NotasFiscais() {
       fetchNotas();
     } catch (err) {
       toast.error('Erro ao consultar status.');
+    }
+  };
+
+  const handleDelete = async (id) => {
+    if (!window.confirm('Tem certeza que deseja excluir esta Nota Fiscal permanentemente?')) return;
+    setActionLoading(true);
+    try {
+      await api.delete(`/notas-fiscais/${id}`);
+      toast.success('Nota Fiscal excluída com sucesso.');
+      fetchNotas();
+    } catch (err) {
+      toast.error(err.response?.data?.error || 'Erro ao excluir NF.');
+    } finally {
+      setActionLoading(false);
     }
   };
 
@@ -211,6 +225,12 @@ export default function NotasFiscais() {
                           {nf.status === 'AUTORIZADA' && (
                             <Button size="sm" variant="danger" onClick={() => { setSelected(nf); setShowCancelar(true); }} title="Cancelar NF">
                               <XCircle size={12} />
+                            </Button>
+                          )}
+                          {/* Excluir */}
+                          {['DIGITANDO', 'ERRO'].includes(nf.status) && (
+                            <Button size="sm" variant="danger" onClick={() => handleDelete(nf.id)} loading={actionLoading} title="Excluir NF">
+                              <Trash2 size={12} />
                             </Button>
                           )}
                           {/* CC-e */}

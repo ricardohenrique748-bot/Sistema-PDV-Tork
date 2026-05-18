@@ -158,4 +158,18 @@ const downloadPDF = async (req, res, next) => {
   } catch (err) { next(err); }
 };
 
-module.exports = { list, getById, getStatus, emitir, cancelar, downloadXML, downloadPDF, cartaCorrecao };
+const excluir = async (req, res, next) => {
+  try {
+    const nf = await prisma.notaFiscal.findUnique({ where: { id: req.params.id } });
+    if (!nf) return res.status(404).json({ error: 'NF não encontrada.' });
+
+    if (!['DIGITANDO', 'ERRO'].includes(nf.status)) {
+      return res.status(400).json({ error: 'Apenas notas em digitação ou com erro podem ser excluídas.' });
+    }
+
+    await prisma.notaFiscal.delete({ where: { id: req.params.id } });
+    res.json({ message: 'NF excluída com sucesso.' });
+  } catch (err) { next(err); }
+};
+
+module.exports = { list, getById, getStatus, emitir, cancelar, downloadXML, downloadPDF, cartaCorrecao, excluir };

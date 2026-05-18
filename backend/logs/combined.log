@@ -176,3 +176,5 @@
 {"level":"info","message":"🚀 Servidor Tork rodando na porta 3001","timestamp":"2026-05-15 21:37:05"}
 {"level":"info","message":"📖 Documentação: http://localhost:3001/api/docs","timestamp":"2026-05-15 21:37:05"}
 {"level":"info","message":"🌍 Ambiente: development","timestamp":"2026-05-15 21:37:05"}
+{"level":"info","message":"Iniciando emissão direta SEFAZ da NF 4cde8606-3ca1-4175-8f8b-b927707e818d","timestamp":"2026-05-18 15:08:06"}
+{"level":"error","message":"Erro na emissão direta da NF 4cde8606-3ca1-4175-8f8b-b927707e818d:","timestamp":"2026-05-18 15:08:14"}

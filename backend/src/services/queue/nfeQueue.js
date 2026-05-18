@@ -6,7 +6,12 @@ let nfeQueue;
 function getQueue() {
   if (!nfeQueue) {
     nfeQueue = new Bull('nfe-emission', {
-      redis: process.env.REDIS_URL || 'redis://localhost:6379',
+      redis: process.env.REDIS_URL || {
+        host: '127.0.0.1',
+        port: 6379,
+        maxRetriesPerRequest: 1,
+        enableOfflineQueue: false
+      },
       defaultJobOptions: {
         attempts: 3,
         backoff: { type: 'exponential', delay: 5000 },
@@ -33,17 +38,24 @@ function getQueue() {
 
 async function emitirNotaFiscalJob(notaFiscalId) {
   try {
-    // Tenta importar o serviço real
     const { emitirNF } = require('../nfe/nfeService');
+    
+    // Se não houver REDIS configurado, processa no background sem usar o Bull (Fire and Forget)
+    if (!process.env.REDIS_URL) {
+      logger.info('REDIS_URL não configurado. Processando emissão em background nativo (sem fila).');
+      setImmediate(() => emitirNF(notaFiscalId).catch(e => logger.error(`Falha na emissão direta NF ${notaFiscalId}: ${e.message}`)));
+      return `local-${Date.now()}`;
+    }
+
     const queue = getQueue();
     const job = await queue.add({ notaFiscalId }, { priority: 1 });
     logger.info(`Job de emissão enfileirado: ${job.id} para NF ${notaFiscalId}`);
     return job.id;
   } catch (err) {
-    // Redis indisponível — dispara sem aguardar para não bloquear a resposta HTTP
-    logger.warn('Redis não disponível. Agendando emissão direta (fire-and-forget)...');
+    logger.warn('Erro ao acessar Redis. Agendando emissão direta (fire-and-forget)...');
     const { emitirNF } = require('../nfe/nfeService');
     setImmediate(() => emitirNF(notaFiscalId).catch(e => logger.error(`Falha na emissão direta NF ${notaFiscalId}: ${e.message}`)));
+    return `fallback-${Date.now()}`;
   }
 }
 

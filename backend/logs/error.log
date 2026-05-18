@@ -38,3 +38,4 @@
 {"level":"error","message":"Falha na emissão direta NF d4d573f0-6c02-4158-8f88-3d7d276cb2a5: Request failed with status code 401","timestamp":"2026-05-15 17:40:55"}
 {"level":"error","message":"Erro na emissão da NF d4d573f0-6c02-4158-8f88-3d7d276cb2a5:","timestamp":"2026-05-15 17:40:56"}
 {"level":"error","message":"Falha na emissão direta NF d4d573f0-6c02-4158-8f88-3d7d276cb2a5: Request failed with status code 401","timestamp":"2026-05-15 17:40:56"}
+{"level":"error","message":"Erro na emissão direta da NF 4cde8606-3ca1-4175-8f8b-b927707e818d:","timestamp":"2026-05-18 15:08:14"}

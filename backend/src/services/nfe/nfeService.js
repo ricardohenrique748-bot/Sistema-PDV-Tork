@@ -52,13 +52,13 @@ async function emitirNF(notaFiscalId) {
     });
 
     // 3. Assina o XML
-    const xmlAssinado = assinarXmlNFeFromDB(xml, certAtivo.pfxBase64, certAtivo.senha);
+    const xmlAssinado = assinarXmlNFeFromDB(xml, certAtivo.pfxBase64, certAtivo.senhaCripto);
 
     // 4. Envia para a SEFAZ
     const retEnviNFe = await autorizarNFe(
       xmlAssinado,
       certAtivo.pfxBase64,
-      certAtivo.senha,
+      certAtivo.senhaCripto,
       empresa.uf,
       empresa.ambienteNF
     );

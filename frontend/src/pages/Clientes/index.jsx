@@ -81,7 +81,8 @@ export default function Clientes() {
     setBuscarCnpjLoading(true);
     try {
       const { data } = await api.get(`/clientes/buscar-cnpj/${form.cnpj.replace(/\D/g, '')}`);
-      setForm(f => ({ ...f, ...data, tipoPessoa: 'JURIDICA' }));
+      const { nomeFantasia, ...rest } = data;
+      setForm(f => ({ ...f, ...rest, nome: nomeFantasia || f.nome, tipoPessoa: 'JURIDICA' }));
       toast.success('Dados do CNPJ carregados!');
     } catch (err) {
       toast.error(err.response?.data?.error || 'CNPJ não encontrado.');

@@ -45,16 +45,41 @@ const getById = async (req, res, next) => {
   } catch (err) { next(err); }
 };
 
+const sanitizeCliente = (body) => {
+  const n = (v) => (v === '' || v == null ? null : v);
+  return {
+    tipoPessoa: body.tipoPessoa,
+    nome: body.nome || '',
+    razaoSocial: n(body.razaoSocial),
+    cpf: n(body.cpf),
+    cnpj: n(body.cnpj),
+    inscricaoEstadual: n(body.inscricaoEstadual),
+    email: n(body.email),
+    telefone: n(body.telefone),
+    celular: n(body.celular),
+    logradouro: n(body.logradouro),
+    numero: n(body.numero),
+    complemento: n(body.complemento),
+    bairro: n(body.bairro),
+    municipio: n(body.municipio),
+    uf: n(body.uf),
+    cep: n(body.cep),
+    codigoMunicipio: n(body.codigoMunicipio),
+    observacoes: n(body.observacoes),
+    limiteCredito: body.limiteCredito !== '' && body.limiteCredito != null ? Number(body.limiteCredito) : null,
+  };
+};
+
 const create = async (req, res, next) => {
   try {
-    const cliente = await prisma.cliente.create({ data: req.body });
+    const cliente = await prisma.cliente.create({ data: sanitizeCliente(req.body) });
     res.status(201).json(cliente);
   } catch (err) { next(err); }
 };
 
 const update = async (req, res, next) => {
   try {
-    const cliente = await prisma.cliente.update({ where: { id: req.params.id }, data: req.body });
+    const cliente = await prisma.cliente.update({ where: { id: req.params.id }, data: sanitizeCliente(req.body) });
     res.json(cliente);
   } catch (err) { next(err); }
 };

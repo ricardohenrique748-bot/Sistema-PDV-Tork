@@ -9,16 +9,17 @@ const { extrairDoPfx } = require('./xmlSigner');
 const { decrypt } = require('../certificate/certService');
 
 /**
- * Cria um agente HTTPS usando PEM extraído via node-forge (evita "Unsupported PKCS12 PFX data")
+ * Cria um agente HTTPS usando PEM extraído via node-forge.
+ * Envia a cadeia completa (leaf + intermediários ICP-Brasil) para mTLS.
  */
 function createHttpsAgent(pfxBuffer, senha) {
-  const { privateKeyPem, certPem } = extrairDoPfx(pfxBuffer, senha);
+  const { privateKeyPem, certChainPem } = extrairDoPfx(pfxBuffer, senha);
   return new https.Agent({
     key: privateKeyPem,
-    cert: certPem,
+    cert: certChainPem,
     rejectUnauthorized: false,
-    secureProtocol: 'TLSv1_2_method',
-    ciphers: 'DEFAULT:@SECLEVEL=1'
+    minVersion: 'TLSv1.2',
+    ciphers: 'DEFAULT:@SECLEVEL=1',
   });
 }
 

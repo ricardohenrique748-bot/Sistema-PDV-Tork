@@ -33,7 +33,11 @@ function extrairDoPfx(pfxBuffer, senha) {
     .replace('-----END CERTIFICATE-----', '')
     .replace(/\n/g, '');
 
-  return { privateKeyPem, certPem, certB64 };
+  // Cadeia completa: leaf + intermediários (necessário para mTLS com ICP-Brasil)
+  const allCerts = certBags[forge.pki.oids.certBag] || [];
+  const certChainPem = allCerts.map(b => forge.pki.certificateToPem(b.cert)).join('\n');
+
+  return { privateKeyPem, certPem, certB64, certChainPem };
 }
 
 /**

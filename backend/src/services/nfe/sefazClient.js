@@ -18,8 +18,6 @@ function createHttpsAgent(pfxBuffer, senha) {
     key: privateKeyPem,
     cert: certChainPem,
     rejectUnauthorized: false,
-    minVersion: 'TLSv1.2',
-    ciphers: 'DEFAULT:@SECLEVEL=1',
   });
 }
 
@@ -60,7 +58,8 @@ async function enviarSoap(url, soapAction, xmlCorpo, pfxBuffer, senha, ufCode) {
       console.error('Erro na resposta da SEFAZ:', err.response.data);
       throw new Error(`Erro na comunicação com a SEFAZ: HTTP ${err.response.status}`);
     }
-    throw new Error(`Erro de rede ao comunicar com a SEFAZ: ${err.message}`);
+    console.error('[SEFAZ] Erro de rede:', err.message, '| code:', err.code, '| errno:', err.errno, '| url:', url);
+    throw new Error(`Erro de rede ao comunicar com a SEFAZ: ${err.message} (code: ${err.code})`);
   }
 }
 

@@ -114,7 +114,7 @@ async function emitirNF(notaFiscalId) {
     }
 
   } catch (err) {
-    logger.error(`Erro na emissão direta da NF ${notaFiscalId}:`, err.message);
+    logger.error(`Erro na emissão direta da NF ${notaFiscalId}: ${err.message}`, err);
     await prisma.notaFiscal.update({
       where: { id: notaFiscalId },
       data: { status: 'ERRO', xMotivo: err.message }

@@ -62,7 +62,7 @@ export default function Vendas() {
     if (!motivoCancelamento.trim()) { toast.error('Informe o motivo do cancelamento.'); return; }
     setCancelando(true);
     try {
-      await api.post(`/vendas/${selected.id}/cancelar`, { motivo: motivoCancelamento });
+      await api.patch(`/vendas/${selected.id}/cancelar`, { motivo: motivoCancelamento });
       toast.success('Venda cancelada e estoque devolvido.');
       setShowCancelar(false);
       setMotivoCancelamento('');

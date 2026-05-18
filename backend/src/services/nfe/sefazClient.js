@@ -16,6 +16,8 @@ function createHttpsAgent(pfxBuffer, senha) {
     pfx: pfxBuffer,
     passphrase: senha,
     rejectUnauthorized: false, // Em homologação às vezes a cadeia da SEFAZ não é reconhecida
+    secureProtocol: 'TLSv1_2_method',
+    ciphers: 'DEFAULT:@SECLEVEL=1'
   });
 }
 

@@ -140,18 +140,22 @@ const SVRS_STATES = ['AC','AL','AP','CE','DF','ES','MA','MS','MT','PA','PB','PE'
 const NFCE_URLS = {
   SP: {
     homologacao: {
-      autorizacao: 'https://homologacao.nfce.fazenda.sp.gov.br/ws/nfeautorizacao4.asmx',
+      autorizacao:  'https://homologacao.nfce.fazenda.sp.gov.br/ws/nfeautorizacao4.asmx',
+      urlConsulta:  'https://www.nfce.fazenda.sp.gov.br/qrcode',
     },
     producao: {
-      autorizacao: 'https://nfce.fazenda.sp.gov.br/ws/nfeautorizacao4.asmx',
+      autorizacao:  'https://nfce.fazenda.sp.gov.br/ws/nfeautorizacao4.asmx',
+      urlConsulta:  'https://www.nfce.fazenda.sp.gov.br/qrcode',
     }
   },
-  RS: { // SVRS (Maranhão usa SVRS para NFCe também)
+  RS: { // SVRS — atende MA e demais estados SVRS para NFC-e
     homologacao: {
-      autorizacao: 'https://nfce-homologacao.svrs.rs.gov.br/ws/NfeAutorizacao/NFeAutorizacao4.asmx',
+      autorizacao:  'https://nfce-homologacao.svrs.rs.gov.br/ws/NfeAutorizacao/NFeAutorizacao4.asmx',
+      urlConsulta:  'https://nfce.svrs.rs.gov.br/consultarNFCe',
     },
     producao: {
-      autorizacao: 'https://nfce.svrs.rs.gov.br/ws/NfeAutorizacao/NFeAutorizacao4.asmx',
+      autorizacao:  'https://nfce.svrs.rs.gov.br/ws/NfeAutorizacao/NFeAutorizacao4.asmx',
+      urlConsulta:  'https://nfce.svrs.rs.gov.br/consultarNFCe',
     }
   }
 };
@@ -185,4 +189,10 @@ function getUFCode(uf) {
   return UF_CODES[(uf || 'SP').toUpperCase()] || 35;
 }
 
-module.exports = { getUrls, getUFCode, UF_CODES };
+function getUrlConsulta(uf, ambiente, modelo) {
+  if (modelo !== 'NFCE') return null;
+  const urls = getUrls(uf, ambiente, modelo);
+  return urls?.urlConsulta || null;
+}
+
+module.exports = { getUrls, getUFCode, getUrlConsulta, UF_CODES };

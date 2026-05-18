@@ -3,7 +3,8 @@
  * Padrão SEFAZ – NT 2023.001
  */
 const { create } = require('xmlbuilder2');
-const { getUFCode } = require('./sefazUrls');
+const crypto = require('crypto');
+const { getUFCode, getUrlConsulta } = require('./sefazUrls');
 
 // Mapa forma de pagamento → código SEFAZ
 const FORMA_PAG = {
@@ -59,9 +60,26 @@ function fmtDate(d) {
 }
 
 /**
+ * Gera o bloco infNFeSupl com QR Code para NFC-e.
+ * Deve ser injetado no XML após a assinatura (entre </infNFe> e <Signature>).
+ */
+function buildInfoNFeSupl(chave, tpAmb, empresa) {
+  const cscId = (empresa.cscId || '000001').padStart(6, '0');
+  const csc   = empresa.csc || '';
+  const urlConsulta = getUrlConsulta(empresa.uf, empresa.ambienteNF === 1 ? 1 : 2, 'NFCE')
+    || 'https://nfce.svrs.rs.gov.br/consultarNFCe';
+
+  const hashInput = chave + cscId + csc;
+  const hash = crypto.createHash('sha1').update(hashInput).digest('hex').toUpperCase();
+  const qrCode = `${urlConsulta}?p=${chave}|${tpAmb}|${cscId}|${hash}`;
+
+  return `<infNFeSupl><qrCode><![CDATA[${qrCode}]]></qrCode><urlFe><![CDATA[${urlConsulta}]]></urlFe></infNFeSupl>`;
+}
+
+/**
  * Bloco destinatário (omitido em NFC-e sem identificação)
  */
-function buildDest(cliente, isNFCe, empresa, tpAmb) {
+function buildDest(cliente, isNFCe, empresa) {
   // Em NFC-e homologação, o destinatário pode ser omitido ou ter CPF fictício
   if (isNFCe && !cliente) return {};
 
@@ -245,7 +263,7 @@ function buildXmlNFe({ empresa, nf, venda, cliente, itens, pagamentos, infAdic }
           ...(empresa.cnae ? { CNAE: empresa.cnae.replace(/\D/g, '') } : {}),
           CRT: String(empresa.regimeTributario || 1),
         },
-        ...buildDest(cliente, isNFCe, empresa, tpAmb),
+        ...buildDest(cliente, isNFCe, empresa),
         ...buildItens(itens),
         total: {
           ICMSTot: {
@@ -287,4 +305,4 @@ function buildXmlNFe({ empresa, nf, venda, cliente, itens, pagamentos, infAdic }
   return { xml: doc.end({ prettyPrint: false }), chave };
 }
 
-module.exports = { buildXmlNFe };
+module.exports = { buildXmlNFe, buildInfoNFeSupl };

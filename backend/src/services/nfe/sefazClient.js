@@ -18,6 +18,20 @@ function createHttpsAgent(pfxBuffer, senha) {
     key: privateKeyPem,
     cert: certChainPem,
     rejectUnauthorized: false,
+    minVersion: 'TLSv1.2',
+    maxVersion: 'TLSv1.2',
+    ciphers: [
+      'ECDHE-RSA-AES256-GCM-SHA384',
+      'ECDHE-RSA-AES128-GCM-SHA256',
+      'ECDHE-RSA-AES256-SHA384',
+      'ECDHE-RSA-AES128-SHA256',
+      'AES256-GCM-SHA384',
+      'AES128-GCM-SHA256',
+      'AES256-SHA256',
+      'AES128-SHA256',
+      'AES256-SHA',
+      'AES128-SHA',
+    ].join(':'),
   });
 }
 

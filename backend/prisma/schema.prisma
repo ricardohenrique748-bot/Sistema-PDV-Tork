@@ -103,6 +103,8 @@ model Empresa {
   email            String?
   site             String?
   ambienteNF       Int      @default(2) // 1=Producao, 2=Homologacao
+  csc              String?  // Código de Segurança do Contribuinte (NFC-e)
+  cscId            String?  // ID do CSC (NFC-e)
   apiKeyFiscal     String?
   createdAt        DateTime @default(now())
   updatedAt        DateTime @updatedAt

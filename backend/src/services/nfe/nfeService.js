@@ -1,6 +1,6 @@
 const prisma = require('../../config/prisma');
 const logger = require('../../utils/logger');
-const { buildXmlNFe } = require('./xmlBuilder');
+const { buildXmlNFe, buildInfoNFeSupl } = require('./xmlBuilder');
 const { assinarXmlNFeFromDB } = require('./xmlSigner');
 const { autorizarNFe } = require('./sefazClient');
 
@@ -52,7 +52,14 @@ async function emitirNF(notaFiscalId) {
     });
 
     // 3. Assina o XML
-    const xmlAssinado = assinarXmlNFeFromDB(xml, certAtivo.pfxBase64, certAtivo.senhaCripto);
+    let xmlAssinado = assinarXmlNFeFromDB(xml, certAtivo.pfxBase64, certAtivo.senhaCripto);
+
+    // 3b. Para NFC-e injeta infNFeSupl (QR Code) entre </infNFe> e <Signature>
+    if (nf.modelo === 'NFCE') {
+      const tpAmb = empresa.ambienteNF === 1 ? '1' : '2';
+      const supl = buildInfoNFeSupl(chave, tpAmb, empresa);
+      xmlAssinado = xmlAssinado.replace('</infNFe>', '</infNFe>' + supl);
+    }
 
     // 4. Envia para a SEFAZ
     const retEnviNFe = await autorizarNFe(

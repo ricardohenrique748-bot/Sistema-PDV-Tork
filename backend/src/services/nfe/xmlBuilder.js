@@ -99,13 +99,15 @@ function buildDest(cliente, isNFCe, empresa, tpAmb) {
 
 /**
  * Bloco de itens
+ * item pode ser VendaItem (com item.peca) ou NotaFiscalItem (campos fiscais diretos)
  */
 function buildItens(itens) {
   const dets = {};
   itens.forEach((item, idx) => {
     const nItem = String(idx + 1).padStart(3, '0');
-    const vlUnit = Number(item.valorUnitario || item.precoUnitario || 0);
-    const qtd    = Number(item.quantidade || 1);
+    const peca  = item.peca || {};
+    const vlUnit  = Number(item.valorUnitario || item.precoUnitario || 0);
+    const qtd     = Number(item.quantidade || 1);
     const vlTotal = Number(item.valorTotal || item.total || vlUnit * qtd);
     const vlDesc  = Number(item.desconto || 0);
 
@@ -113,24 +115,24 @@ function buildItens(itens) {
       [`det_${nItem}`]: {
         '@nItem': String(idx + 1),
         prod: {
-          cProd:    item.codigo || String(idx + 1).padStart(6, '0'),
-          cEAN:     item.codigoBarras || 'SEM GTIN',
-          xProd:    (item.descricao || item.nome || 'PRODUTO').substring(0, 120),
-          NCM:      (item.ncm || '87089990').replace(/\D/g, '').padStart(8, '0'),
-          ...(item.cest ? { CEST: item.cest.replace(/\D/g, '').padStart(7, '0') } : {}),
-          CFOP:     item.cfop || '5102',
-          uCom:     (item.unidade || 'UN').substring(0, 6),
+          cProd:    item.codigo    || peca.codigo    || String(idx + 1).padStart(6, '0'),
+          cEAN:     item.codigoBarras || peca.codigoBarras || 'SEM GTIN',
+          xProd:    (item.descricao || peca.nome || 'PRODUTO').substring(0, 120),
+          NCM:      (item.ncm  || peca.ncm  || '87089990').replace(/\D/g, '').padStart(8, '0'),
+          ...((item.cest || peca.cest) ? { CEST: (item.cest || peca.cest).replace(/\D/g, '').padStart(7, '0') } : {}),
+          CFOP:     item.cfop  || peca.cfop  || '5102',
+          uCom:     (item.unidade || peca.unidade || 'UN').substring(0, 6),
           qCom:     qtd.toFixed(4),
           vUnCom:   vlUnit.toFixed(4),
           vProd:    vlTotal.toFixed(2),
-          cEANTrib: item.codigoBarras || 'SEM GTIN',
-          uTrib:    (item.unidade || 'UN').substring(0, 6),
+          cEANTrib: item.codigoBarras || peca.codigoBarras || 'SEM GTIN',
+          uTrib:    (item.unidade || peca.unidade || 'UN').substring(0, 6),
           qTrib:    qtd.toFixed(4),
           vUnTrib:  vlUnit.toFixed(4),
           ...(vlDesc > 0 ? { vDesc: vlDesc.toFixed(2) } : {}),
           indTot:   '1',
         },
-        imposto: buildImpostoItem(item),
+        imposto: buildImpostoItem(item, peca),
       },
     };
     Object.assign(dets, det);
@@ -141,12 +143,12 @@ function buildItens(itens) {
 /**
  * Impostos por item – Simples Nacional (CRT 1 ou 2)
  */
-function buildImpostoItem(item) {
-  const csosn = item.csosn || '400';
+function buildImpostoItem(item, peca = {}) {
+  const csosn = item.csosn || peca.csosn || '400';
   return {
     ICMS: {
       ICMSSN400: {  // Tributado pelo Simples Nacional sem permissão de crédito (mais comum)
-        orig:  item.icmsOrigem || '0',
+        orig:  item.icmsOrigem || peca.icmsOrigem || '0',
         CSOSN: csosn,
       },
     },
@@ -172,7 +174,7 @@ function buildImpostoItem(item) {
 /**
  * Monta e retorna o XML da NF-e (sem assinatura)
  */
-function buildXmlNFe({ empresa, nf, venda, cliente, itens, pagamentos }) {
+function buildXmlNFe({ empresa, nf, venda, cliente, itens, pagamentos, infAdic }) {
   const { chave, cNF, cDV } = gerarChave(empresa, nf);
   const cUF    = getUFCode(empresa.uf);
   const isNFCe = nf.modelo === 'NFCE';
@@ -273,9 +275,10 @@ function buildXmlNFe({ empresa, nf, venda, cliente, itens, pagamentos }) {
         },
         transp: { modFrete: '9' },
         pag: { detPag: detsPag },
-        ...(venda.observacoes ? {
-          infAdic: { infCpl: venda.observacoes.substring(0, 500) },
-        } : {}),
+        ...(() => {
+          const partes = [venda.observacoes, infAdic].filter(Boolean);
+          return partes.length ? { infAdic: { infCpl: partes.join(' | ').substring(0, 500) } } : {};
+        })(),
       },
     },
   };

@@ -176,7 +176,7 @@ async function main() {
       usuarioId: admin.id,
       modelo: 'NFE',
       serie: 1,
-      numero: 1,
+      numero: 49,
       status: 'DIGITANDO',
       totalNF: 2000.00,
       ambienteNF: 2,

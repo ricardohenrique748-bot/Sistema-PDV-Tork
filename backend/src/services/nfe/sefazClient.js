@@ -95,14 +95,12 @@ async function autorizarNFe(xmlAssinado, pfxBase64Cripto, senhaCripto, uf, ambie
   const urls = getUrls(uf, ambiente, modelo);
 
   // Monta o lote enviando apenas 1 NF (síncrono)
-  // idLote pode ser qualquer numero único, vamos usar um timestamp simples
   const idLote = Date.now().toString().slice(-15);
-  
-  const loteXml = `<enviNFe versao="4.00" xmlns="http://www.portalfiscal.inf.br/nfe">
-  <idLote>${idLote}</idLote>
-  <indSinc>1</indSinc>
-  ${xmlAssinado}
-</enviNFe>`;
+
+  // Remove declaração XML antes de embutir no SOAP — declaração dentro do body causa HTTP 400
+  const xmlSemDeclaracao = xmlAssinado.replace(/^<\?xml[^?]*\?>\s*/i, '');
+
+  const loteXml = `<enviNFe versao="4.00" xmlns="http://www.portalfiscal.inf.br/nfe"><idLote>${idLote}</idLote><indSinc>1</indSinc>${xmlSemDeclaracao}</enviNFe>`;
 
   const soapResponse = await enviarSoap(
     urls.autorizacao,

@@ -38,6 +38,10 @@ async function emitirNF(notaFiscalId) {
     throw new Error('Nenhum certificado digital ativo foi encontrado. Configure em Configurações > NF-e / Certificado.');
   }
 
+  if (nf.modelo === 'NFCE' && (!empresa.csc || !empresa.cscId)) {
+    throw new Error('CSC e CSC ID são obrigatórios para emissão de NFC-e. Configure em Configurações > Dados da Empresa.');
+  }
+
   const venda = nf.venda;
   const cliente = nf.cliente || venda.cliente;
 

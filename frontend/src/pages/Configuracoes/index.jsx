@@ -12,7 +12,7 @@ const defaultEmpresa = {
   inscricaoMunicipal: '', cnae: '', regimeTributario: 1,
   logradouro: '', numero: '', complemento: '', bairro: '',
   municipio: '', uf: '', cep: '', codigoMunicipio: '',
-  telefone: '', email: '', ambienteNF: 2,
+  telefone: '', email: '', ambienteNF: 2, csc: '', cscId: '',
 };
 
 export default function Configuracoes() {
@@ -559,6 +559,33 @@ export default function Configuracoes() {
               <div className="p-3 bg-blue-500/10 border border-blue-500/20 rounded-lg text-xs text-blue-300">
                 O certificado é armazenado criptografado com AES-256. A senha nunca é guardada em texto plano.
               </div>
+            </div>
+          </Card>
+
+          {/* CSC NFC-e */}
+          <Card>
+            <h3 className="text-base font-semibold text-white mb-1 flex items-center gap-2">
+              <Shield size={16} className="text-primary-400" /> CSC — Código de Segurança do Contribuinte (NFC-e)
+            </h3>
+            <p className="text-xs text-gray-500 mb-4">Obrigatório para emissão de NFC-e (modelo 65). Obtido no portal da SEFAZ do seu estado.</p>
+            <div className="grid grid-cols-2 gap-3">
+              <Input
+                label="CSC ID"
+                value={empresa.cscId || ''}
+                onChange={e => setE('cscId', e.target.value)}
+                placeholder="Ex: 000001"
+              />
+              <Input
+                label="CSC Token"
+                value={empresa.csc || ''}
+                onChange={e => setE('csc', e.target.value)}
+                placeholder="Token fornecido pela SEFAZ"
+              />
+            </div>
+            <div className="mt-4 flex justify-end">
+              <Button variant="primary" loading={savingEmpresa} onClick={handleSaveEmpresa}>
+                <Save size={14} /> Salvar CSC
+              </Button>
             </div>
           </Card>
 

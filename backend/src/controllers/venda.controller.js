@@ -154,7 +154,7 @@ async function getProximoNumeroNF(modelo) {
     orderBy: { numero: 'desc' },
     select: { numero: true }
   });
-  return (last?.numero || 0) + 1;
+  return (last?.numero || 48) + 1;
 }
 
 const cancelar = async (req, res, next) => {

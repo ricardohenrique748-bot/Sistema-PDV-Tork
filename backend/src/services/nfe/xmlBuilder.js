@@ -155,7 +155,18 @@ function buildItens(itens, crt = 1) {
 /**
  * Impostos por item
  * CRT 1/2 → Simples Nacional → CSOSN
- * CRT 3   → Regime Normal    → CST (ICMS40/41 para não tributado/isento)
+ * CRT 3   → Regime Normal    → CST
+ *
+ * Mapeamento correto NF-e v4.00 XSD:
+ *   CST 00          → ICMS00
+ *   CST 40/41/50    → ICMS40  (único elemento para os três no XSD v4.00)
+ *   CST 60          → ICMS60
+ *   CSOSN 102/300/400 → ICMSSN102
+ *   CSOSN 101       → ICMSSN101
+ *   CSOSN 201       → ICMSSN201
+ *   CSOSN 202       → ICMSSN202
+ *   CSOSN 500       → ICMSSN500
+ *   CSOSN 900       → ICMSSN900
  */
 function buildImpostoItem(item, peca = {}, crt = 1) {
   const orig = item.icmsOrigem || peca.icmsOrigem || '0';
@@ -165,16 +176,29 @@ function buildImpostoItem(item, peca = {}, crt = 1) {
     const cst = String(item.cst || peca.cst || '41');
     if (cst === '00') {
       icmsGrupo = { ICMS00: { orig, CST: '00', modBC: '3', vBC: '0.00', pICMS: '0.00', vICMS: '0.00' } };
-    } else if (cst === '40') {
-      icmsGrupo = { ICMS40: { orig, CST: '40' } };
     } else if (cst === '60') {
-      icmsGrupo = { ICMS60: { orig, CST: '60', vBCST: '0.00', vICMSST: '0.00' } };
+      icmsGrupo = { ICMS60: { orig, CST: '60' } };
     } else {
-      icmsGrupo = { ICMS41: { orig, CST: '41' } };
+      // CST 40, 41, 50 → mesmo elemento ICMS40 no XSD v4.00
+      const cstValido = ['40', '41', '50'].includes(cst) ? cst : '41';
+      icmsGrupo = { ICMS40: { orig, CST: cstValido } };
     }
   } else {
-    const csosn = item.csosn || peca.csosn || '400';
-    icmsGrupo = { ICMSSN400: { orig, CSOSN: csosn } };
+    const csosn = String(item.csosn || peca.csosn || '400');
+    if (csosn === '101') {
+      icmsGrupo = { ICMSSN101: { orig, CSOSN: '101', pCredSN: '0.00', vCredICMSSN: '0.00' } };
+    } else if (csosn === '201') {
+      icmsGrupo = { ICMSSN201: { orig, CSOSN: '201', modBCST: '3', vBCST: '0.00', pICMSST: '0.00', vICMSST: '0.00', vBCFCPST: '0.00', pFCPST: '0.00', vFCPST: '0.00', pCredSN: '0.00', vCredICMSSN: '0.00' } };
+    } else if (csosn === '202') {
+      icmsGrupo = { ICMSSN202: { orig, CSOSN: '202', modBCST: '3', vBCST: '0.00', pICMSST: '0.00', vICMSST: '0.00', vBCFCPST: '0.00', pFCPST: '0.00', vFCPST: '0.00' } };
+    } else if (csosn === '500') {
+      icmsGrupo = { ICMSSN500: { orig, CSOSN: '500' } };
+    } else if (csosn === '900') {
+      icmsGrupo = { ICMSSN900: { orig, CSOSN: '900' } };
+    } else {
+      // CSOSN 102, 300, 400 → ICMSSN102 (único elemento para os três no XSD v4.00)
+      icmsGrupo = { ICMSSN102: { orig, CSOSN: ['102', '300', '400'].includes(csosn) ? csosn : '400' } };
+    }
   }
 
   return {

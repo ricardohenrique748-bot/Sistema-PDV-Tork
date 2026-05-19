@@ -108,7 +108,12 @@ function buildDest(cliente, isNFCe, empresa) {
       };
     }
 
-    dest.indIEDest = '9'; // não contribuinte — deve vir após enderDest no XSD
+    if (cliente.inscricaoEstadual && cliente.inscricaoEstadual.toUpperCase() !== 'ISENTO') {
+      dest.indIEDest = '1';
+      dest.IE = cliente.inscricaoEstadual.replace(/\D/g, '');
+    } else {
+      dest.indIEDest = '9';
+    }
 
     if (cliente.email) dest.email = cliente.email.substring(0, 60);
   }
@@ -224,16 +229,23 @@ function buildXmlNFe({ empresa, nf, venda, cliente, itens, pagamentos, infAdic }
   const dhEmi  = fmtDate(nf.dataEmissao || new Date());
 
   // Totais
-  const vProd  = itens.reduce((s, i) => s + Number(i.valorTotal || i.total || 0), 0);
+  let vProd = 0, vICMS = 0, vPIS = 0, vCOFINS = 0;
+  itens.forEach(i => {
+    vProd += Number(i.valorTotal || i.total || 0);
+    vICMS += Number(i.valorIcms || 0);
+    vPIS += Number(i.valorPis || 0);
+    vCOFINS += Number(i.valorCofins || 0);
+  });
   const vDesc  = Number(venda.desconto || 0);
   const vNF    = vProd - vDesc;
 
   // Pagamentos
   const detsPag = (pagamentos || []).map(p => ({
+    indPag: '0', // 0=A vista, 1=A prazo
     tPag: FORMA_PAG[p.forma] || '01',
     vPag: Number(p.valor).toFixed(2),
   }));
-  if (!detsPag.length) detsPag.push({ tPag: '01', vPag: vNF.toFixed(2) });
+  if (!detsPag.length) detsPag.push({ indPag: '0', tPag: '01', vPag: vNF.toFixed(2) });
 
   const obj = {
     NFe: {
@@ -289,7 +301,7 @@ function buildXmlNFe({ empresa, nf, venda, cliente, itens, pagamentos, infAdic }
         total: {
           ICMSTot: {
             vBC:        '0.00',
-            vICMS:      '0.00',
+            vICMS:      vICMS.toFixed(2),
             vICMSDeson: '0.00',
             vFCPUFDest: '0.00',
             vICMSUFDest:'0.00',
@@ -306,14 +318,20 @@ function buildXmlNFe({ empresa, nf, venda, cliente, itens, pagamentos, infAdic }
             vII:        '0.00',
             vIPI:       '0.00',
             vIPIDevol:  '0.00',
-            vPIS:       '0.00',
-            vCOFINS:    '0.00',
+            vPIS:       vPIS.toFixed(2),
+            vCOFINS:    vCOFINS.toFixed(2),
             vOutro:     '0.00',
             vNF:        vNF.toFixed(2),
           },
         },
         transp: { modFrete: '9' },
-        pag: { detPag: detsPag },
+        pag: { detPag: detsPag, vTroco: '0.00' },
+        infRespTec: {
+          CNPJ: '00000000000000', // Preencher com CNPJ da Sofware House
+          xContato: 'Suporte Tork',
+          email: 'suporte@sistematork.com.br',
+          fone: '11999999999'
+        },
         ...(() => {
           const partes = [venda.observacoes, infAdic].filter(Boolean);
           return partes.length ? { infAdic: { infCpl: partes.join(' | ').substring(0, 500) } } : {};

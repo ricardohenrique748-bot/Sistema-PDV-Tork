@@ -2,7 +2,7 @@ const prisma = require('../../config/prisma');
 const logger = require('../../utils/logger');
 const { buildXmlNFe, buildInfoNFeSupl } = require('./xmlBuilder');
 const { assinarXmlNFeFromDB } = require('./xmlSigner');
-const { autorizarNFe } = require('./sefazClient');
+const { autorizarNFe, enviarCancelamento } = require('./sefazClient');
 
 /**
  * Monta, Assina e Emite a NF-e via SEFAZ
@@ -140,19 +140,48 @@ async function consultarStatusNF(notaFiscalId) {
 }
 
 /**
- * Função mock para cancelamento e carta de correção (será implementado os detalhes do evento a seguir)
+ * Envia o evento de cancelamento para a SEFAZ e atualiza o banco
  */
 async function cancelarNF(notaFiscalId, justificativa) {
-  // TODO: Emissão do Evento de Cancelamento XML para SEFAZ
   const nf = await prisma.notaFiscal.findUnique({ where: { id: notaFiscalId } });
   if (!nf) throw new Error('Nota fiscal não encontrada.');
+  if (nf.status !== 'AUTORIZADA') throw new Error('Apenas NF autorizadas podem ser canceladas.');
+  if (!nf.chaveAcesso) throw new Error('Chave de acesso não encontrada na NF.');
+  if (!nf.protocolo) throw new Error('Protocolo de autorização não encontrado na NF.');
+
+  const empresa = await prisma.empresa.findFirst();
+  if (!empresa) throw new Error('Dados da empresa não configurados.');
+
+  const certAtivo = await prisma.certificado.findFirst({ where: { ativo: true } });
+  if (!certAtivo) throw new Error('Nenhum certificado digital ativo encontrado.');
+
+  const resultado = await enviarCancelamento(
+    nf.chaveAcesso,
+    nf.protocolo,
+    justificativa,
+    certAtivo.pfxBase64,
+    certAtivo.senhaCripto,
+    empresa.uf,
+    empresa.ambienteNF
+  );
+
+  // 135 = Evento Registrado e Vinculado a NF-e  |  136 = Registrado mas não vinculado
+  if (!['135', '136'].includes(String(resultado.cStat))) {
+    throw new Error(`Cancelamento rejeitado pela SEFAZ [${resultado.cStat}]: ${resultado.xMotivo}`);
+  }
 
   await prisma.notaFiscal.update({
     where: { id: notaFiscalId },
-    data: { status: 'CANCELADA', motivoCancelamento: justificativa, xMotivo: 'Cancelamento Registrado Localmente' }
+    data: {
+      status: 'CANCELADA',
+      motivoCancelamento: justificativa,
+      xMotivo: resultado.xMotivo,
+      cStat: parseInt(resultado.cStat),
+    }
   });
 
-  return { status: 'cancelado' };
+  logger.info(`NF ${nf.chaveAcesso} cancelada na SEFAZ: [${resultado.cStat}] ${resultado.xMotivo}`);
+  return { status: 'cancelado', cStat: resultado.cStat, xMotivo: resultado.xMotivo };
 }
 
 module.exports = { emitirNF, consultarStatusNF, cancelarNF };

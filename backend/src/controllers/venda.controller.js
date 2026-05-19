@@ -159,7 +159,6 @@ async function getProximoNumeroNF(modelo) {
 
 const cancelar = async (req, res, next) => {
   try {
-    const { motivo } = req.body;
     const venda = await prisma.venda.findUnique({ where: { id: req.params.id }, include: { itens: true } });
     if (!venda) return res.status(404).json({ error: 'Venda não encontrada.' });
     if (venda.status === 'CANCELADA') return res.status(400).json({ error: 'Venda já cancelada.' });

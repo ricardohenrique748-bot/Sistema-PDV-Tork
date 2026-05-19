@@ -121,7 +121,7 @@ const converter = async (req, res, next) => {
       modeloNF: req.body.modeloNF,
     });
 
-    await prisma.orcamento.update({ where: { id: req.params.id }, data: { status: 'APROVADO' } });
+    await prisma.orcamento.update({ where: { id: req.params.id }, data: { status: 'CONVERTIDO' } });
 
     res.status(201).json({ ...result, message: 'Orçamento convertido em venda!' });
   } catch (err) {

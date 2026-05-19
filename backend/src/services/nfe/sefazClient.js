@@ -124,4 +124,45 @@ async function autorizarNFe(xmlAssinado, pfxBase64Cripto, senhaCripto, uf, ambie
   return retEnviNFe;
 }
 
-module.exports = { autorizarNFe };
+/**
+ * Envia o evento de cancelamento de uma NF-e para a SEFAZ
+ */
+async function enviarCancelamento(chave, protocolo, justificativa, pfxBase64Cripto, senhaCripto, uf, ambiente) {
+  const { assinarXmlEventoFromDB } = require('./xmlSigner');
+  const pfxBase64 = decrypt(pfxBase64Cripto);
+  const senha     = decrypt(senhaCripto);
+  const pfxBuffer = Buffer.from(pfxBase64, 'base64');
+
+  const ufCode  = getUFCode(uf);
+  const urls    = getUrls(uf, ambiente, 'NFE'); // cancelamento sempre usa endpoint NFE
+  const tpAmb   = ambiente === 1 ? '1' : '2';
+  const cnpj    = chave.substring(6, 20);
+  const nSeq    = '01';
+  const id      = `ID110111${chave}${nSeq}`;
+
+  const d   = new Date();
+  const pad = n => String(n).padStart(2, '0');
+  const dhEvento = `${d.getFullYear()}-${pad(d.getMonth()+1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}:${pad(d.getSeconds())}-03:00`;
+
+  const xmlEvento = `<envEvento versao="1.00" xmlns="http://www.portalfiscal.inf.br/nfe"><idLote>1</idLote><evento versao="1.00"><infEvento Id="${id}"><cOrgao>${ufCode}</cOrgao><tpAmb>${tpAmb}</tpAmb><CNPJ>${cnpj}</CNPJ><chNFe>${chave}</chNFe><dhEvento>${dhEvento}</dhEvento><tpEvento>110111</tpEvento><nSeqEvento>${nSeq}</nSeqEvento><verEvento>1.00</verEvento><detEvento versao="1.00"><descEvento>Cancelamento</descEvento><nProt>${protocolo}</nProt><xJust>${justificativa}</xJust></detEvento></infEvento></evento></envEvento>`;
+
+  const xmlAssinado = assinarXmlEventoFromDB(xmlEvento, pfxBase64Cripto, senhaCripto);
+
+  const soapResponse = await enviarSoap(
+    urls.recepcaoEvento,
+    'NFeRecepcaoEvento4',
+    xmlAssinado,
+    pfxBuffer,
+    senha,
+    ufCode
+  );
+
+  const body       = soapResponse['soap12:Envelope']['soap12:Body'];
+  const retEnvEvento = body.nfeResultMsg?.retEnvEvento || body?.retEnvEvento;
+  if (!retEnvEvento) throw new Error('Resposta inválida da SEFAZ (retEnvEvento não encontrado)');
+
+  const infEvento = retEnvEvento.retEvento?.infEvento || retEnvEvento.retEvento?.[0]?.infEvento;
+  return { cStat: infEvento?.cStat, xMotivo: infEvento?.xMotivo, nProt: infEvento?.nProt };
+}
+
+module.exports = { autorizarNFe, enviarCancelamento };

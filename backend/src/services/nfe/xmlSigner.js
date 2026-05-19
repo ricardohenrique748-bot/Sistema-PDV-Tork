@@ -103,4 +103,48 @@ function assinarXmlNFeFromDB(xmlString, pfxBase64Cripto, senhaCripto) {
   return assinarXmlNFe(xmlString, pfxBuffer, senha);
 }
 
-module.exports = { assinarXmlNFe, assinarXmlNFeFromDB, extrairDoPfx };
+/**
+ * Assina o XML de um evento NF-e (cancelamento, CC-e) com XMLDsig
+ * O Id do evento segue o padrão: ID{tpEvento}{chave44}{nSeq2}
+ */
+function assinarXmlEventoFromDB(xmlString, pfxBase64Cripto, senhaCripto) {
+  const pfxBase64 = decrypt(pfxBase64Cripto);
+  const senha     = decrypt(senhaCripto);
+  const pfxBuffer = Buffer.from(pfxBase64, 'base64');
+  const { privateKeyPem, certB64 } = extrairDoPfx(pfxBuffer, senha);
+
+  const match = xmlString.match(/Id="(ID\d+)"/);
+  if (!match) throw new Error('Id do evento não encontrado no XML para assinatura');
+  const id = match[1];
+
+  const sig = new SignedXml({
+    privateKey: privateKeyPem,
+    signatureAlgorithm: 'http://www.w3.org/2000/09/xmldsig#rsa-sha1',
+    canonicalizationAlgorithm: 'http://www.w3.org/TR/2001/REC-xml-c14n-20010315',
+  });
+
+  sig.addReference({
+    xpath: `//*[@Id='${id}']`,
+    transforms: [
+      'http://www.w3.org/2000/09/xmldsig#enveloped-signature',
+      'http://www.w3.org/TR/2001/REC-xml-c14n-20010315',
+    ],
+    digestAlgorithm: 'http://www.w3.org/2000/09/xmldsig#sha1',
+    uri: `#${id}`,
+    isEmptyUri: false,
+  });
+
+  sig.keyInfoProvider = {
+    getKeyInfo: () => `<X509Data><X509Certificate>${certB64}</X509Certificate></X509Data>`,
+    getKey: () => Buffer.from(privateKeyPem),
+  };
+
+  sig.computeSignature(xmlString, {
+    location: { reference: `//*[local-name(.)='infEvento']`, action: 'after' },
+    prefix: '',
+  });
+
+  return sig.getSignedXml();
+}
+
+module.exports = { assinarXmlNFe, assinarXmlNFeFromDB, assinarXmlEventoFromDB, extrairDoPfx };

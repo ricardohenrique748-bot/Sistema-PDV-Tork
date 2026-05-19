@@ -32,12 +32,22 @@ function calcDV(chave43) {
 }
 
 /**
+ * Retorna um objeto Date ajustado para o fuso horário de Brasília (UTC-3),
+ * garantindo que os métodos getUTC* retornem a data/hora local correta,
+ * independentemente do fuso horário do servidor (ex: AWS).
+ */
+function getBrtDate(d) {
+  const dt = new Date(d || Date.now());
+  return new Date(dt.getTime() - (3 * 60 * 60 * 1000));
+}
+
+/**
  * Gera a chave de acesso de 44 dígitos
  */
 function gerarChave(empresa, nf) {
   const cUF   = String(getUFCode(empresa.uf)).padStart(2, '0');
-  const d     = new Date(nf.dataEmissao || Date.now());
-  const AAMM  = String(d.getFullYear()).slice(-2) + String(d.getMonth() + 1).padStart(2, '0');
+  const brt   = getBrtDate(nf.dataEmissao);
+  const AAMM  = String(brt.getUTCFullYear()).slice(-2) + String(brt.getUTCMonth() + 1).padStart(2, '0');
   const cnpj  = empresa.cnpj.replace(/\D/g, '').padStart(14, '0');
   const mod   = nf.modelo === 'NFCE' ? '65' : '55';
   const serie = String(nf.serie || 1).padStart(3, '0');
@@ -53,10 +63,9 @@ function gerarChave(empresa, nf) {
  * Formata data para o padrão SEFAZ: 2024-01-15T10:30:00-03:00
  */
 function fmtDate(d) {
-  const dt = new Date(d || Date.now());
-  // Offset -03:00
+  const brt = getBrtDate(d);
   const pad = n => String(n).padStart(2, '0');
-  return `${dt.getFullYear()}-${pad(dt.getMonth()+1)}-${pad(dt.getDate())}T${pad(dt.getHours())}:${pad(dt.getMinutes())}:${pad(dt.getSeconds())}-03:00`;
+  return `${brt.getUTCFullYear()}-${pad(brt.getUTCMonth()+1)}-${pad(brt.getUTCDate())}T${pad(brt.getUTCHours())}:${pad(brt.getUTCMinutes())}:${pad(brt.getUTCSeconds())}-03:00`;
 }
 
 /**

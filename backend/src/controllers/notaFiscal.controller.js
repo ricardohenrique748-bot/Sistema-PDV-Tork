@@ -1,6 +1,5 @@
 const prisma = require('../config/prisma');
-const { emitirNF, consultarStatusNF, cancelarNF } = require('../services/nfe/nfeService');
-const { emitirNotaFiscalJob } = require('../services/queue/nfeQueue');
+const { emitirNF, cancelarNF } = require('../services/nfe/nfeService');
 const path = require('path');
 const fs = require('fs');
 
@@ -76,8 +75,13 @@ const emitir = async (req, res, next) => {
       await prisma.notaFiscal.update({ where: { id: nf.id }, data: { pedidoCompra: pedidoCompra || null } });
     }
 
-    const jobId = await emitirNotaFiscalJob(nf.id);
-    res.json({ message: 'NF enfileirada para emissão.', jobId });
+    // Emissão síncrona: aguarda resposta da SEFAZ e retorna resultado imediato
+    const resultado = await emitirNF(nf.id);
+    const nfAtualizada = await prisma.notaFiscal.findUnique({
+      where: { id: nf.id },
+      select: { id: true, status: true, chaveAcesso: true, protocolo: true, xMotivo: true, cStat: true }
+    });
+    res.json({ message: 'NF autorizada com sucesso.', resultado, notaFiscal: nfAtualizada });
   } catch (err) { next(err); }
 };
 

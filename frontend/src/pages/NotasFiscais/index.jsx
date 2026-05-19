@@ -46,14 +46,16 @@ export default function NotasFiscais() {
   const handleEmitir = async () => {
     setActionLoading(true);
     try {
-      await api.post(`/notas-fiscais/${selected.id}/emitir`, { pedidoCompra: pedidoCompra || undefined });
-      toast.success('NF enviada para emissão. Aguarde a autorização da SEFAZ.');
+      const { data } = await api.post(`/notas-fiscais/${selected.id}/emitir`, { pedidoCompra: pedidoCompra || undefined });
+      const chave = data.notaFiscal?.chaveAcesso;
+      toast.success(`NF autorizada! Protocolo: ${data.notaFiscal?.protocolo || '—'}${chave ? `\nChave: ${chave.substring(0, 20)}…` : ''}`);
       setShowEmitir(false);
       setPedidoCompra('');
       setSelected(null);
       fetchNotas();
     } catch (err) {
-      toast.error(err.response?.data?.error || 'Erro ao emitir NF.');
+      const msg = err.response?.data?.error || err.message || 'Erro ao emitir NF.';
+      toast.error(`Falha na emissão: ${msg}`, { duration: 8000 });
     } finally {
       setActionLoading(false);
     }

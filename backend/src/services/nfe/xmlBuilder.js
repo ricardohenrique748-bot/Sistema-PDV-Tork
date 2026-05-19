@@ -116,46 +116,39 @@ function buildDest(cliente, isNFCe, empresa) {
 }
 
 /**
- * Bloco de itens
- * item pode ser VendaItem (com item.peca) ou NotaFiscalItem (campos fiscais diretos)
+ * Bloco de itens — retorna array para que xmlbuilder2 gere múltiplos <det>
  */
 function buildItens(itens) {
-  const dets = {};
-  itens.forEach((item, idx) => {
-    const nItem = String(idx + 1).padStart(3, '0');
-    const peca  = item.peca || {};
+  return itens.map((item, idx) => {
+    const peca    = item.peca || {};
     const vlUnit  = Number(item.valorUnitario || item.precoUnitario || 0);
     const qtd     = Number(item.quantidade || 1);
     const vlTotal = Number(item.valorTotal || item.total || vlUnit * qtd);
     const vlDesc  = Number(item.desconto || 0);
 
-    const det = {
-      [`det_${nItem}`]: {
-        '@nItem': String(idx + 1),
-        prod: {
-          cProd:    item.codigo    || peca.codigo    || String(idx + 1).padStart(6, '0'),
-          cEAN:     item.codigoBarras || peca.codigoBarras || 'SEM GTIN',
-          xProd:    (item.descricao || peca.nome || 'PRODUTO').substring(0, 120),
-          NCM:      (item.ncm  || peca.ncm  || '87089990').replace(/\D/g, '').padStart(8, '0'),
-          ...((item.cest || peca.cest) ? { CEST: (item.cest || peca.cest).replace(/\D/g, '').padStart(7, '0') } : {}),
-          CFOP:     item.cfop  || peca.cfop  || '5102',
-          uCom:     (item.unidade || peca.unidade || 'UN').substring(0, 6),
-          qCom:     qtd.toFixed(4),
-          vUnCom:   vlUnit.toFixed(4),
-          vProd:    vlTotal.toFixed(2),
-          cEANTrib: item.codigoBarras || peca.codigoBarras || 'SEM GTIN',
-          uTrib:    (item.unidade || peca.unidade || 'UN').substring(0, 6),
-          qTrib:    qtd.toFixed(4),
-          vUnTrib:  vlUnit.toFixed(4),
-          ...(vlDesc > 0 ? { vDesc: vlDesc.toFixed(2) } : {}),
-          indTot:   '1',
-        },
-        imposto: buildImpostoItem(item, peca),
+    return {
+      '@nItem': String(idx + 1),
+      prod: {
+        cProd:    item.codigo    || peca.codigo    || String(idx + 1).padStart(6, '0'),
+        cEAN:     item.codigoBarras || peca.codigoBarras || 'SEM GTIN',
+        xProd:    (item.descricao || peca.nome || 'PRODUTO').substring(0, 120),
+        NCM:      (item.ncm  || peca.ncm  || '87089990').replace(/\D/g, '').padStart(8, '0'),
+        ...((item.cest || peca.cest) ? { CEST: (item.cest || peca.cest).replace(/\D/g, '').padStart(7, '0') } : {}),
+        CFOP:     item.cfop  || peca.cfop  || '5102',
+        uCom:     (item.unidade || peca.unidade || 'UN').substring(0, 6),
+        qCom:     qtd.toFixed(4),
+        vUnCom:   vlUnit.toFixed(4),
+        vProd:    vlTotal.toFixed(2),
+        cEANTrib: item.codigoBarras || peca.codigoBarras || 'SEM GTIN',
+        uTrib:    (item.unidade || peca.unidade || 'UN').substring(0, 6),
+        qTrib:    qtd.toFixed(4),
+        vUnTrib:  vlUnit.toFixed(4),
+        ...(vlDesc > 0 ? { vDesc: vlDesc.toFixed(2) } : {}),
+        indTot:   '1',
       },
+      imposto: buildImpostoItem(item, peca),
     };
-    Object.assign(dets, det);
   });
-  return dets;
 }
 
 /**
@@ -256,15 +249,13 @@ function buildXmlNFe({ empresa, nf, venda, cliente, itens, pagamentos, infAdic }
             xPais:   'BRASIL',
             ...(empresa.telefone ? { fone: empresa.telefone.replace(/\D/g, '') } : {}),
           },
-          IE: empresa.inscricaoEstadual
-            ? empresa.inscricaoEstadual.replace(/\D/g, '')
-            : 'ISENTO',
+          IE: (empresa.inscricaoEstadual && empresa.inscricaoEstadual.replace(/\D/g, '')) || 'ISENTO',
           ...(empresa.inscricaoMunicipal ? { IM: empresa.inscricaoMunicipal } : {}),
           ...(empresa.cnae ? { CNAE: empresa.cnae.replace(/\D/g, '') } : {}),
           CRT: String(empresa.regimeTributario || 1),
         },
         ...buildDest(cliente, isNFCe, empresa),
-        ...buildItens(itens),
+        det: buildItens(itens),
         total: {
           ICMSTot: {
             vBC:        '0.00',

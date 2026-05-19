@@ -60,7 +60,7 @@ export default function PDV() {
   }, [clienteSearch]);
 
   const handleAddPeca = (peca) => {
-    if (peca.estoqueAtual <= 0) {
+    if (peca.tipo !== 'SERVICO' && peca.estoqueAtual <= 0) {
       toast.error(`Sem estoque para ${peca.nome}`);
       return;
     }
@@ -150,9 +150,13 @@ export default function PDV() {
                         </div>
                         <div className="text-right ml-3">
                           <p className="text-sm font-bold text-green-400">{formatCurrency(peca.precoVenda)}</p>
-                          <p className={`text-xs ${peca.estoqueAtual <= peca.estoqueMinimo ? 'text-red-400' : 'text-gray-500'}`}>
-                            Estoque: {peca.estoqueAtual}
-                          </p>
+                          {peca.tipo === 'SERVICO' ? (
+                            <p className="text-xs text-blue-400">Serviço</p>
+                          ) : (
+                            <p className={`text-xs ${peca.estoqueAtual <= peca.estoqueMinimo ? 'text-red-400' : 'text-gray-500'}`}>
+                              Estoque: {peca.estoqueAtual}
+                            </p>
+                          )}
                         </div>
                       </div>
                     </button>

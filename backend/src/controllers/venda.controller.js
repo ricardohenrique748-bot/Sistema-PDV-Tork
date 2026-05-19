@@ -61,7 +61,7 @@ async function criarVenda({ clienteId, usuarioId, itens, pagamentos, desconto = 
   for (const item of itens) {
     const peca = pecaMap[item.pecaId];
     if (!peca) { const e = new Error(`Peça ${item.pecaId} não encontrada.`); e.status = 400; throw e; }
-    if (peca.estoqueAtual < item.quantidade) {
+    if (peca.tipo !== 'SERVICO' && peca.estoqueAtual < item.quantidade) {
       const e = new Error(`Estoque insuficiente para ${peca.nome}. Disponível: ${peca.estoqueAtual}`);
       e.status = 400; throw e;
     }
@@ -103,6 +103,7 @@ async function criarVenda({ clienteId, usuarioId, itens, pagamentos, desconto = 
 
     for (const item of vendaItens) {
       const peca = pecaMap[item.pecaId];
+      if (peca.tipo === 'SERVICO') continue;
       const novoEstoque = peca.estoqueAtual - item.quantidade;
       await tx.peca.update({ where: { id: item.pecaId }, data: { estoqueAtual: novoEstoque } });
       await tx.movimentacaoEstoque.create({
@@ -165,9 +166,10 @@ const cancelar = async (req, res, next) => {
 
     await prisma.$transaction(async (tx) => {
       await tx.venda.update({ where: { id: req.params.id }, data: { status: 'CANCELADA' } });
-      // Devolve estoque
+      // Devolve estoque (apenas peças, não serviços)
       for (const item of venda.itens) {
         const peca = await tx.peca.findUnique({ where: { id: item.pecaId } });
+        if (peca.tipo === 'SERVICO') continue;
         const novoEstoque = peca.estoqueAtual + item.quantidade;
         await tx.peca.update({ where: { id: item.pecaId }, data: { estoqueAtual: novoEstoque } });
         await tx.movimentacaoEstoque.create({

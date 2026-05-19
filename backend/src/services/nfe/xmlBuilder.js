@@ -93,7 +93,6 @@ function buildDest(cliente, isNFCe, empresa) {
     else if (cpf && cpf.length === 11) dest.CPF = cpf;
 
     dest.xNome = (cliente.razaoSocial || cliente.nome || 'NF-E EMITIDA EM AMBIENTE DE HOMOLOGACAO').substring(0, 60);
-    dest.indIEDest = '9'; // não contribuinte
 
     if (cliente.logradouro) {
       dest.enderDest = {
@@ -108,6 +107,8 @@ function buildDest(cliente, isNFCe, empresa) {
         xPais:  'BRASIL',
       };
     }
+
+    dest.indIEDest = '9'; // não contribuinte — deve vir após enderDest no XSD
 
     if (cliente.email) dest.email = cliente.email.substring(0, 60);
   }

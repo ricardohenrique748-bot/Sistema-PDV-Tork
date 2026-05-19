@@ -50,8 +50,8 @@ async function emitirNF(notaFiscalId) {
     if (nf.modelo === 'NFCE') {
       const tpAmb = empresa.ambienteNF === 1 ? '1' : '2';
       const infNFeSupl = buildInfoNFeSupl(chave, tpAmb, empresa);
-      // Insere o grupo Supl antes de fechar a NFe
-      xmlAssinado = xmlAssinado.replace('</NFe>', `${infNFeSupl}</NFe>`);
+      // XSD v4.00: infNFeSupl deve vir DEPOIS de </infNFe> e ANTES de <Signature>
+      xmlAssinado = xmlAssinado.replace('</infNFe>', `</infNFe>${infNFeSupl}`);
     }
 
     // 4. Enviar requisição SOAP de Autorização Síncrona

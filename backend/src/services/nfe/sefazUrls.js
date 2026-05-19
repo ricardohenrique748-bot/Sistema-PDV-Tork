@@ -134,8 +134,29 @@ const NFE_URLS = {
   },
 };
 
+// SVC-AN — Sefaz Virtual Ambiente Nacional (Receita Federal), aceita qualquer UF
+const SVCAN_URLS = {
+  homologacao: {
+    autorizacao:       'https://hom.sefazvirtual.fazenda.gov.br/NFeAutorizacao4/NFeAutorizacao4.asmx',
+    retAutorizacao:    'https://hom.sefazvirtual.fazenda.gov.br/NFeRetAutorizacao4/NFeRetAutorizacao4.asmx',
+    consultaProtocolo: 'https://hom.sefazvirtual.fazenda.gov.br/NfeConsultaProtocolo4/NfeConsultaProtocolo4.asmx',
+    recepcaoEvento:    'https://hom.sefazvirtual.fazenda.gov.br/NFeRecepcaoEvento4/NFeRecepcaoEvento4.asmx',
+    statusServico:     'https://hom.sefazvirtual.fazenda.gov.br/NfeStatusServico4/NfeStatusServico4.asmx',
+  },
+  producao: {
+    autorizacao:       'https://www.sefazvirtual.fazenda.gov.br/NFeAutorizacao4/NFeAutorizacao4.asmx',
+    retAutorizacao:    'https://www.sefazvirtual.fazenda.gov.br/NFeRetAutorizacao4/NFeRetAutorizacao4.asmx',
+    consultaProtocolo: 'https://www.sefazvirtual.fazenda.gov.br/NfeConsultaProtocolo4/NfeConsultaProtocolo4.asmx',
+    recepcaoEvento:    'https://www.sefazvirtual.fazenda.gov.br/NFeRecepcaoEvento4/NFeRecepcaoEvento4.asmx',
+    statusServico:     'https://www.sefazvirtual.fazenda.gov.br/NfeStatusServico4/NfeStatusServico4.asmx',
+  },
+};
+
 // Estados atendidos pelo SVRS (RS)
-const SVRS_STATES = ['AC','AL','AP','CE','DF','ES','MA','MS','MT','PA','PB','PE','PI','RJ','RN','RO','RR','SC','SE','TO'];
+const SVRS_STATES = ['AC','AL','AP','CE','DF','ES','MS','MT','PA','PB','PE','PI','RJ','RN','RO','RR','SC','SE','TO'];
+
+// Estados que usam SVC-AN (Ambiente Nacional) — MA bloqueou SVC-RS (rejeição 114)
+const SVCAN_STATES = ['MA'];
 
 const NFCE_URLS = {
   SP: {
@@ -171,6 +192,11 @@ function getUrls(uf, ambiente, modelo = 'NFE') {
 
   if (baseUrls[ufUpper]) {
     return baseUrls[ufUpper][ambiKey];
+  }
+
+  // Estados que usam SVC-AN (Ambiente Nacional)
+  if (SVCAN_STATES.includes(ufUpper)) {
+    return SVCAN_URLS[ambiKey];
   }
 
   // Estados atendidos pelo SVRS (RS)

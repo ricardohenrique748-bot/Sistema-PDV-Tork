@@ -1,191 +1,327 @@
+/**
+ * Integração Focus NF-e
+ * Documentação: https://focusnfe.com.br/doc/
+ */
+const axios = require('axios');
 const prisma = require('../../config/prisma');
 const logger = require('../../utils/logger');
-const { buildXmlNFe, buildInfoNFeSupl } = require('./xmlBuilder');
-const { assinarXmlNFeFromDB } = require('./xmlSigner');
-const { autorizarNFe, enviarCancelamento } = require('./sefazClient');
 
-/**
- * Monta, Assina e Emite a NF-e via SEFAZ
- */
+const FORMA_PAG = {
+  DINHEIRO:         '01',
+  CHEQUE:           '02',
+  CARTAO_CREDITO:   '03',
+  CARTAO_DEBITO:    '04',
+  CREDIARIO:        '05',
+  VALE_ALIMENTACAO: '10',
+  VALE_REFEICAO:    '11',
+  PIX:              '17',
+  BOLETO:           '15',
+  SEM_PAGAMENTO:    '90',
+};
+
+function mapearStatusFocus(statusFocus) {
+  const map = {
+    autorizado:  'AUTORIZADA',
+    cancelado:   'CANCELADA',
+    denegado:    'DENEGADA',
+    erro:        'ERRO',
+    processando: 'ENVIADA',
+    pendente:    'ENVIADA',
+  };
+  return map[statusFocus] || 'ERRO';
+}
+
+function buildPayload(empresa, nf, venda, cliente, itens, pagamentos, infAdic) {
+  const isNFCe = nf.modelo === 'NFCE';
+  const vProd  = itens.reduce((s, i) => s + Number(i.valorTotal || i.total || 0), 0);
+  const vDesc  = Number(venda.desconto || 0);
+  const vNF    = vProd - vDesc;
+
+  const payload = {
+    natureza_operacao:   'VENDA DE MERCADORIA',
+    data_emissao:        new Date(nf.dataEmissao || Date.now()).toISOString(),
+    tipo_documento:      1,
+    finalidade_emissao:  1,
+    consumidor_final:    isNFCe ? 1 : (cliente?.tipoPessoa === 'FISICA' ? 1 : 0),
+    presenca_comprador:  1,
+    cnpj_emitente:       empresa.cnpj.replace(/\D/g, ''),
+    itens:               buildItens(itens, empresa.regimeTributario),
+    formas_pagamento:    buildPagamentos(pagamentos, vNF),
+  };
+
+  Object.assign(payload, buildDestinatario(cliente, isNFCe, empresa));
+
+  const partes = [venda.observacoes, infAdic].filter(Boolean);
+  if (partes.length) {
+    payload.informacoes_adicionais_contribuinte = partes.join(' | ').substring(0, 500);
+  }
+
+  if (isNFCe && empresa.cscId && empresa.csc) {
+    payload.csc_id    = empresa.cscId;
+    payload.csc_token = empresa.csc;
+  }
+
+  return payload;
+}
+
+function buildDestinatario(cliente, isNFCe, empresa) {
+  if (isNFCe && !cliente) return {};
+  if (!cliente) return {};
+
+  const d = {};
+  const cpf  = cliente.cpf  ? cliente.cpf.replace(/\D/g, '')  : null;
+  const cnpj = cliente.cnpj ? cliente.cnpj.replace(/\D/g, '') : null;
+
+  if (cnpj && cnpj.length === 14) d.cnpj_destinatario = cnpj;
+  else if (cpf && cpf.length === 11) d.cpf_destinatario = cpf;
+
+  d.nome_destinatario        = (cliente.razaoSocial || cliente.nome || 'NF-E EMITIDA EM AMBIENTE DE HOMOLOGACAO').substring(0, 60);
+  d.indicador_ie_destinatario = 9;
+
+  if (cliente.logradouro) {
+    d.logradouro_destinatario           = (cliente.logradouro || 'NAO INFORMADO').substring(0, 60);
+    d.numero_destinatario               = (cliente.numero     || 'S/N').substring(0, 60);
+    d.bairro_destinatario               = (cliente.bairro     || 'NAO INFORMADO').substring(0, 60);
+    d.municipio_destinatario            = (cliente.municipio  || empresa.municipio || 'SAO PAULO').substring(0, 60);
+    d.uf_destinatario                   = cliente.uf || empresa.uf || 'SP';
+    d.cep_destinatario                  = (cliente.cep || '').replace(/\D/g, '');
+    d.codigo_municipio_destinatario     = cliente.codigoMunicipio || '9999999';
+    d.pais_destinatario                 = 'Brasil';
+    d.codigo_pais_destinatario          = '1058';
+  }
+
+  if (cliente.email) d.email_destinatario = cliente.email;
+
+  return d;
+}
+
+function buildItens(itens, crt = 1) {
+  return itens.map((item, idx) => {
+    const peca    = item.peca || {};
+    const vlUnit  = Number(item.valorUnitario || item.precoUnitario || 0);
+    const qtd     = Number(item.quantidade || 1);
+    const vlTotal = Number(item.valorTotal || item.total || vlUnit * qtd);
+    const vlDesc  = Number(item.desconto || 0);
+
+    const i = {
+      numero_item:               String(idx + 1),
+      codigo_produto:            item.codigo    || peca.codigo    || String(idx + 1).padStart(6, '0'),
+      descricao:                 (item.descricao || peca.nome || 'PRODUTO').substring(0, 120),
+      codigo_ncm:                (item.ncm  || peca.ncm  || '87089990').replace(/\D/g, '').padStart(8, '0'),
+      cfop:                      item.cfop  || peca.cfop  || '5102',
+      unidade_comercial:         (item.unidade || peca.unidade || 'UN').substring(0, 6),
+      quantidade_comercial:      qtd.toFixed(4),
+      valor_unitario_comercial:  vlUnit.toFixed(4),
+      valor_bruto:               vlTotal.toFixed(2),
+      codigo_ean:                item.codigoBarras || peca.codigoBarras || 'SEM GTIN',
+      unidade_tributavel:        (item.unidade || peca.unidade || 'UN').substring(0, 6),
+      quantidade_tributavel:     qtd.toFixed(4),
+      valor_unitario_tributavel: vlUnit.toFixed(4),
+      codigo_ean_tributavel:     item.codigoBarras || peca.codigoBarras || 'SEM GTIN',
+      inclui_no_total:           1,
+      icms_origem:               String(item.icmsOrigem || peca.icmsOrigem || '0'),
+    };
+
+    if (vlDesc > 0) i.valor_desconto = vlDesc.toFixed(2);
+    if (item.cest || peca.cest) {
+      i.codigo_cest = (item.cest || peca.cest).replace(/\D/g, '').padStart(7, '0');
+    }
+
+    if (Number(crt) === 3) {
+      i.icms_modalidade = String(item.cst || peca.cst || '41'); // CST Regime Normal
+    } else {
+      i.icms_csosn = String(item.csosn || peca.csosn || '400'); // CSOSN Simples Nacional
+    }
+
+    i.pis_situacao_tributaria    = '07';
+    i.cofins_situacao_tributaria = '07';
+
+    return i;
+  });
+}
+
+function buildPagamentos(pagamentos, vNF) {
+  const dets = (pagamentos || []).map(p => ({
+    forma_pagamento: FORMA_PAG[p.forma] || '01',
+    valor_pagamento: Number(p.valor).toFixed(2),
+  }));
+  if (!dets.length) dets.push({ forma_pagamento: '01', valor_pagamento: vNF.toFixed(2) });
+  return dets;
+}
+
+function getFocusConfig() {
+  const token = process.env.FOCUS_NFE_TOKEN;
+  if (!token || token === 'seu-token-focus-nfe') {
+    throw new Error('FOCUS_NFE_TOKEN não configurado. Acesse app.focusnfe.com.br, crie uma conta e configure o token no .env do servidor.');
+  }
+  const baseUrl = (process.env.FOCUS_NFE_BASE_URL || 'https://homologacao.focusnfe.com.br/v2').replace(/\/$/, '');
+  return { token, baseUrl };
+}
+
+async function focusGet(url, token) {
+  const resp = await axios.get(url, { auth: { username: token, password: '' }, timeout: 15000 });
+  return resp.data;
+}
+
 async function emitirNF(notaFiscalId) {
-  logger.info(`Iniciando emissão direta SEFAZ da NF ${notaFiscalId}`);
+  logger.info(`Iniciando emissão Focus NF-e: ${notaFiscalId}`);
 
-  // 1. Busca os dados no banco
   const nf = await prisma.notaFiscal.findUnique({
     where: { id: notaFiscalId },
     include: {
-      venda: {
-        include: {
-          itens: { include: { peca: true } },
-          pagamentos: true,
-          cliente: true,
-        }
-      },
+      venda: { include: { itens: { include: { peca: true } }, pagamentos: true, cliente: true } },
       cliente: true,
-      usuario: true,
     }
   });
 
-  if (!nf) throw new Error('Nota fiscal não encontrada.');
+  if (!nf)       throw new Error('Nota fiscal não encontrada.');
   if (!nf.venda) throw new Error('Venda não vinculada à nota fiscal.');
 
   const empresa = await prisma.empresa.findFirst();
   if (!empresa) throw new Error('Dados da empresa não configurados.');
 
-  // Verifica se o certificado está configurado
-  const certAtivo = await prisma.certificado.findFirst({ where: { ativo: true } });
-  if (!certAtivo) {
-    throw new Error('Nenhum certificado digital ativo foi encontrado. Configure em Configurações > NF-e / Certificado.');
-  }
+  const { token, baseUrl } = getFocusConfig();
 
-  if (nf.modelo === 'NFCE' && (!empresa.csc || !empresa.cscId)) {
-    throw new Error('CSC e CSC ID são obrigatórios para emissão de NFC-e. Configure em Configurações > Dados da Empresa.');
-  }
-
-  const venda = nf.venda;
+  const venda   = nf.venda;
   const cliente = nf.cliente || venda.cliente;
+  const infAdic = nf.pedidoCompra ? `Pedido de Compra: ${nf.pedidoCompra}` : undefined;
+  const endpoint = nf.modelo === 'NFCE' ? 'nfce' : 'nfe';
+  const ref = `tork_${notaFiscalId}`;
+
+  const payload = buildPayload(empresa, nf, venda, cliente, venda.itens, venda.pagamentos, infAdic);
 
   try {
-    // 2. Monta o XML
-    const infAdic = nf.pedidoCompra ? `Pedido de Compra: ${nf.pedidoCompra}` : undefined;
-    const { xml, chave } = buildXmlNFe({ empresa, nf, venda, cliente, itens: venda.itens, pagamentos: venda.pagamentos, infAdic });
-
-    // Atualiza a chave no banco antes de assinar
     await prisma.notaFiscal.update({
       where: { id: notaFiscalId },
-      data: { chaveAcesso: chave, status: 'ENVIADA' }
+      data: { status: 'ENVIADA', focusNFeId: ref },
     });
 
-    // 3. Assina o XML
-    let xmlAssinado = assinarXmlNFeFromDB(xml, certAtivo.pfxBase64, certAtivo.senhaCripto);
+    logger.info(`Focus NF-e POST ${baseUrl}/${endpoint}?ref=${ref}`);
 
-    // 3b. Para NFC-e injeta infNFeSupl (QR Code) entre </infNFe> e <Signature>
-    if (nf.modelo === 'NFCE') {
-      const tpAmb = empresa.ambienteNF === 1 ? '1' : '2';
-      const supl = buildInfoNFeSupl(chave, tpAmb, empresa);
-      xmlAssinado = xmlAssinado.replace('</infNFe>', '</infNFe>' + supl);
-    }
-
-    // 4. Envia para a SEFAZ
-    const retEnviNFe = await autorizarNFe(
-      xmlAssinado,
-      certAtivo.pfxBase64,
-      certAtivo.senhaCripto,
-      empresa.uf,
-      empresa.ambienteNF,
-      nf.modelo
+    await axios.post(
+      `${baseUrl}/${endpoint}?ref=${ref}`,
+      payload,
+      { auth: { username: token, password: '' }, timeout: 30000 }
     );
 
-    // 5. Analisa a resposta
-    const status = retEnviNFe.cStat;
-    const motivo = retEnviNFe.xMotivo;
-    const protocoloObj = retEnviNFe.protNFe?.infProt;
-    const procStatus = protocoloObj?.cStat || status;
-    const procMotivo = protocoloObj?.xMotivo || motivo;
+    // Polling: aguarda até 30s pela resposta da SEFAZ
+    for (let attempt = 1; attempt <= 10; attempt++) {
+      await new Promise(r => setTimeout(r, 3000));
 
-    logger.info(`SEFAZ Resposta para ${chave}: cStat=${procStatus} xMotivo=${procMotivo}`);
+      const data = await focusGet(`${baseUrl}/${endpoint}/${ref}`, token);
+      logger.info(`Focus poll ${attempt}/10: status=${data.status}`);
 
-    // Em processamento sincrono:
-    // 104 = Lote processado (tem que olhar o protNFe)
-    // 100 = Autorizado o uso da NF-e
-    if (procStatus === '100' || procStatus === '150') { // 100=Autorizada, 150=Autorizada Fora Prazo
-      await prisma.notaFiscal.update({
-        where: { id: notaFiscalId },
-        data: {
-          status: 'AUTORIZADA',
-          protocolo: protocoloObj?.nProt,
-          xMotivo: procMotivo,
-          cStat: parseInt(procStatus),
-          dataAutorizacao: protocoloObj?.dhRecbto ? new Date(protocoloObj.dhRecbto) : new Date(),
-          xmlConteudo: xmlAssinado // Salvamos o XML no banco
+      if (data.status === 'autorizado') {
+        let xmlConteudo = null;
+        if (data.caminho_xml_nota_fiscal) {
+          try {
+            const xmlResp = await axios.get(data.caminho_xml_nota_fiscal, {
+              auth: { username: token, password: '' }, timeout: 15000,
+            });
+            xmlConteudo = typeof xmlResp.data === 'string' ? xmlResp.data : null;
+          } catch (e) {
+            logger.warn('Não foi possível baixar XML da Focus: ' + e.message);
+          }
         }
-      });
-      return { success: true, cStat: procStatus, xMotivo: procMotivo };
-    } else if (procStatus === '110' || procStatus === '301' || procStatus === '302') {
-      // Uso denegado
-      await prisma.notaFiscal.update({
-        where: { id: notaFiscalId },
-        data: {
-          status: 'DENEGADA',
-          xMotivo: procMotivo,
-          cStat: parseInt(procStatus),
-        }
-      });
-      throw new Error(`Uso denegado pela SEFAZ: ${procMotivo}`);
-    } else {
-      // Rejeição
-      await prisma.notaFiscal.update({
-        where: { id: notaFiscalId },
-        data: {
-          status: 'ERRO',
-          xMotivo: procMotivo,
-          cStat: parseInt(procStatus),
-        }
-      });
-      throw new Error(`Rejeição SEFAZ [${procStatus}]: ${procMotivo}`);
+
+        await prisma.notaFiscal.update({
+          where: { id: notaFiscalId },
+          data: {
+            status:          'AUTORIZADA',
+            chaveAcesso:     data.chave_nfe,
+            protocolo:       data.protocolo,
+            xMotivo:         data.mensagem_sefaz,
+            cStat:           data.status_sefaz ? parseInt(data.status_sefaz) : 100,
+            dataAutorizacao: data.data_autorizacao ? new Date(data.data_autorizacao) : new Date(),
+            ...(xmlConteudo ? { xmlConteudo } : {}),
+          },
+        });
+
+        logger.info(`NF ${notaFiscalId} autorizada: chave=${data.chave_nfe}`);
+        return { success: true, cStat: data.status_sefaz, xMotivo: data.mensagem_sefaz };
+      }
+
+      if (['erro', 'denegado', 'cancelado'].includes(data.status)) {
+        await prisma.notaFiscal.update({
+          where: { id: notaFiscalId },
+          data: {
+            status:  mapearStatusFocus(data.status),
+            xMotivo: data.mensagem_sefaz,
+            cStat:   data.status_sefaz ? parseInt(data.status_sefaz) : null,
+          },
+        });
+        throw new Error(`Focus NF-e [${data.status_sefaz}]: ${data.mensagem_sefaz}`);
+      }
     }
 
+    // Ainda processando — webhook vai finalizar
+    logger.info(`NF ${notaFiscalId} ainda processando após polling. Aguardando webhook Focus.`);
+    return { success: true, pending: true };
+
   } catch (err) {
-    logger.error(`Erro na emissão direta da NF ${notaFiscalId}: ${err.message}`, err);
+    if (err.response) {
+      const errData  = err.response.data;
+      const mensagem = (errData?.erros?.[0]?.mensagem) || errData?.mensagem || JSON.stringify(errData).substring(0, 200);
+      logger.error(`Focus NF-e HTTP ${err.response.status}: ${mensagem}`);
+      await prisma.notaFiscal.update({
+        where: { id: notaFiscalId },
+        data: { status: 'ERRO', xMotivo: `Focus: ${mensagem}` },
+      });
+      throw new Error(`Erro Focus NF-e: ${mensagem}`);
+    }
+    // Erro de rede ou de negócio já tratado
+    logger.error(`Erro na emissão NF ${notaFiscalId}: ${err.message}`);
     await prisma.notaFiscal.update({
       where: { id: notaFiscalId },
-      data: { status: 'ERRO', xMotivo: err.message }
-    });
-    throw new Error(err.message);
+      data: { status: 'ERRO', xMotivo: err.message },
+    }).catch(() => {});
+    throw err;
   }
 }
 
-/**
- * Consulta status local/SEFAZ (adaptado do Focus)
- */
 async function consultarStatusNF(notaFiscalId) {
-  const nf = await prisma.notaFiscal.findUnique({ where: { id: notaFiscalId } });
-  return nf;
+  return prisma.notaFiscal.findUnique({ where: { id: notaFiscalId } });
 }
 
-/**
- * Envia o evento de cancelamento para a SEFAZ e atualiza o banco
- */
 async function cancelarNF(notaFiscalId, justificativa) {
   const nf = await prisma.notaFiscal.findUnique({ where: { id: notaFiscalId } });
   if (!nf) throw new Error('Nota fiscal não encontrada.');
   if (nf.status !== 'AUTORIZADA') throw new Error('Apenas NF autorizadas podem ser canceladas.');
-  if (!nf.chaveAcesso) throw new Error('Chave de acesso não encontrada na NF.');
-  if (!nf.protocolo) throw new Error('Protocolo de autorização não encontrado na NF.');
 
-  const empresa = await prisma.empresa.findFirst();
-  if (!empresa) throw new Error('Dados da empresa não configurados.');
+  const { token, baseUrl } = getFocusConfig();
+  const endpoint = nf.modelo === 'NFCE' ? 'nfce' : 'nfe';
+  const ref = nf.focusNFeId || `tork_${notaFiscalId}`;
 
-  const certAtivo = await prisma.certificado.findFirst({ where: { ativo: true } });
-  if (!certAtivo) throw new Error('Nenhum certificado digital ativo encontrado.');
+  try {
+    const resp = await axios.delete(
+      `${baseUrl}/${endpoint}/${ref}`,
+      { auth: { username: token, password: '' }, data: { justificativa }, timeout: 30000 }
+    );
 
-  const resultado = await enviarCancelamento(
-    nf.chaveAcesso,
-    nf.protocolo,
-    justificativa,
-    certAtivo.pfxBase64,
-    certAtivo.senhaCripto,
-    empresa.uf,
-    empresa.ambienteNF
-  );
-
-  // 135 = Evento Registrado e Vinculado a NF-e  |  136 = Registrado mas não vinculado
-  if (!['135', '136'].includes(String(resultado.cStat))) {
-    throw new Error(`Cancelamento rejeitado pela SEFAZ [${resultado.cStat}]: ${resultado.xMotivo}`);
-  }
-
-  await prisma.notaFiscal.update({
-    where: { id: notaFiscalId },
-    data: {
-      status: 'CANCELADA',
-      motivoCancelamento: justificativa,
-      xMotivo: resultado.xMotivo,
-      cStat: parseInt(resultado.cStat),
+    const data = resp.data;
+    if (data.status !== 'cancelado') {
+      throw new Error(`Cancelamento não aceito pela Focus: ${data.mensagem_sefaz || data.status}`);
     }
-  });
 
-  logger.info(`NF ${nf.chaveAcesso} cancelada na SEFAZ: [${resultado.cStat}] ${resultado.xMotivo}`);
-  return { status: 'cancelado', cStat: resultado.cStat, xMotivo: resultado.xMotivo };
+    await prisma.notaFiscal.update({
+      where: { id: notaFiscalId },
+      data: {
+        status:             'CANCELADA',
+        motivoCancelamento: justificativa,
+        xMotivo:            data.mensagem_sefaz,
+      },
+    });
+
+    logger.info(`NF ${notaFiscalId} cancelada via Focus NF-e`);
+    return { status: 'cancelado', xMotivo: data.mensagem_sefaz };
+
+  } catch (err) {
+    if (err.response) {
+      const mensagem = err.response.data?.mensagem || JSON.stringify(err.response.data);
+      throw new Error(`Erro Focus cancelamento: ${mensagem}`);
+    }
+    throw err;
+  }
 }
 
-module.exports = { emitirNF, consultarStatusNF, cancelarNF };
+module.exports = { emitirNF, consultarStatusNF, cancelarNF, mapearStatusFocus };

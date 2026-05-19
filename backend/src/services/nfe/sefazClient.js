@@ -7,6 +7,7 @@ const { parseStringPromise } = require('xml2js');
 const { getUrls, getUFCode } = require('./sefazUrls');
 const { extrairDoPfx } = require('./xmlSigner');
 const { decrypt } = require('../certificate/certService');
+const logger = require('../../utils/logger');
 
 /**
  * Cria um agente HTTPS usando PEM extraído via node-forge.
@@ -69,10 +70,10 @@ async function enviarSoap(url, soapAction, xmlCorpo, pfxBuffer, senha, ufCode) {
     return await parseStringPromise(response.data, { explicitArray: false, ignoreAttrs: false });
   } catch (err) {
     if (err.response) {
-      console.error('Erro na resposta da SEFAZ:', err.response.data);
+      logger.error(`[SEFAZ] HTTP ${err.response.status} | url: ${url} | resposta: ${String(err.response.data).substring(0, 800)}`);
       throw new Error(`Erro na comunicação com a SEFAZ: HTTP ${err.response.status}`);
     }
-    console.error('[SEFAZ] Erro de rede:', err.message, '| code:', err.code, '| errno:', err.errno, '| url:', url);
+    logger.error(`[SEFAZ] Erro de rede: ${err.message} | code: ${err.code} | url: ${url}`);
     throw new Error(`Erro de rede ao comunicar com a SEFAZ: ${err.message} (code: ${err.code})`);
   }
 }

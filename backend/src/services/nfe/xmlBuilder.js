@@ -86,46 +86,56 @@ function buildInfoNFeSupl(chave, tpAmb, empresa) {
 }
 
 /**
- * Bloco destinatário (omitido em NFC-e sem identificação)
+ * Bloco destinatário
+ * NFC-e (mod 65): dest só aceita CNPJ/CPF, xNome e email — sem enderDest/indIEDest/IE
+ * NF-e  (mod 55): dest completo com endereço e indicador de IE
  */
 function buildDest(cliente, isNFCe, empresa) {
-  // Em NFC-e homologação, o destinatário pode ser omitido ou ter CPF fictício
-  if (isNFCe && !cliente) return {};
+  if (!cliente) return {};
 
-  const dest = {};
+  const cpf  = cliente.cpf  ? cliente.cpf.replace(/\D/g, '')  : null;
+  const cnpj = cliente.cnpj ? cliente.cnpj.replace(/\D/g, '') : null;
 
-  if (cliente) {
-    const cpf  = cliente.cpf  ? cliente.cpf.replace(/\D/g, '')  : null;
-    const cnpj = cliente.cnpj ? cliente.cnpj.replace(/\D/g, '') : null;
-
+  if (isNFCe) {
+    // NFC-e: apenas identificação do consumidor (schema não aceita enderDest/indIEDest)
+    const dest = {};
     if (cnpj && cnpj.length === 14) dest.CNPJ = cnpj;
     else if (cpf && cpf.length === 11) dest.CPF = cpf;
-
-    dest.xNome = (cliente.razaoSocial || cliente.nome || 'NF-E EMITIDA EM AMBIENTE DE HOMOLOGACAO').substring(0, 60);
-
-    if (cliente.logradouro) {
-      dest.enderDest = {
-        xLgr:   (cliente.logradouro || 'NAO INFORMADO').substring(0, 60),
-        nro:    (cliente.numero     || 'S/N').substring(0, 60),
-        xBairro:(cliente.bairro     || 'NAO INFORMADO').substring(0, 60),
-        cMun:   cliente.codigoMunicipio || '9999999',
-        xMun:   (cliente.municipio  || empresa.municipio || 'SAO PAULO').substring(0, 60),
-        UF:     cliente.uf || empresa.uf || 'SP',
-        CEP:    (cliente.cep || '').replace(/\D/g, ''),
-        cPais:  '1058',
-        xPais:  'BRASIL',
-      };
-    }
-
-    if (cliente.inscricaoEstadual && cliente.inscricaoEstadual.toUpperCase() !== 'ISENTO') {
-      dest.indIEDest = '1';
-      dest.IE = cliente.inscricaoEstadual.replace(/\D/g, '');
-    } else {
-      dest.indIEDest = '9';
-    }
-
+    if (cliente.razaoSocial || cliente.nome)
+      dest.xNome = (cliente.razaoSocial || cliente.nome).substring(0, 60);
     if (cliente.email) dest.email = cliente.email.substring(0, 60);
+    return Object.keys(dest).length ? { dest } : {};
   }
+
+  // NF-e modelo 55
+  const dest = {};
+  if (cnpj && cnpj.length === 14) dest.CNPJ = cnpj;
+  else if (cpf && cpf.length === 11) dest.CPF = cpf;
+
+  dest.xNome = (cliente.razaoSocial || cliente.nome || 'NF-E EMITIDA EM AMBIENTE DE HOMOLOGACAO').substring(0, 60);
+
+  if (cliente.logradouro) {
+    dest.enderDest = {
+      xLgr:    (cliente.logradouro || 'NAO INFORMADO').substring(0, 60),
+      nro:     (cliente.numero     || 'S/N').substring(0, 60),
+      xBairro: (cliente.bairro     || 'NAO INFORMADO').substring(0, 60),
+      cMun:    cliente.codigoMunicipio || '9999999',
+      xMun:    (cliente.municipio  || empresa.municipio || 'SAO PAULO').substring(0, 60),
+      UF:      cliente.uf || empresa.uf || 'SP',
+      CEP:     (cliente.cep || '').replace(/\D/g, ''),
+      cPais:   '1058',
+      xPais:   'BRASIL',
+    };
+  }
+
+  if (cliente.inscricaoEstadual && cliente.inscricaoEstadual.toUpperCase() !== 'ISENTO') {
+    dest.indIEDest = '1';
+    dest.IE = cliente.inscricaoEstadual.replace(/\D/g, '');
+  } else {
+    dest.indIEDest = '9';
+  }
+
+  if (cliente.email) dest.email = cliente.email.substring(0, 60);
 
   return Object.keys(dest).length ? { dest } : {};
 }
@@ -336,10 +346,10 @@ function buildXmlNFe({ empresa, nf, venda, cliente, itens, pagamentos, infAdic }
         transp: { modFrete: '9' },
         pag: { detPag: detsPag, vTroco: '0.00' },
         infRespTec: {
-          CNPJ: '00000000000000', // Preencher com CNPJ da Sofware House
+          CNPJ: empresa.cnpj.replace(/\D/g, ''),
           xContato: 'Suporte Tork',
           email: 'suporte@sistematork.com.br',
-          fone: '11999999999'
+          fone: '11999999999',
         },
         ...(() => {
           const partes = [venda.observacoes, infAdic].filter(Boolean);

@@ -344,17 +344,17 @@ function buildXmlNFe({ empresa, nf, venda, cliente, itens, pagamentos, infAdic }
           },
         },
         transp: { modFrete: '9' },
-        pag: { detPag: detsPag, vTroco: '0.00' },
+        pag: { detPag: detsPag },
+        ...(() => {
+          const partes = [venda.observacoes, infAdic].filter(Boolean);
+          return partes.length ? { infAdic: { infCpl: partes.join(' | ').substring(0, 500) } } : {};
+        })(),
         infRespTec: {
           CNPJ: empresa.cnpj.replace(/\D/g, ''),
           xContato: 'Suporte Tork',
           email: 'suporte@sistematork.com.br',
           fone: '11999999999',
         },
-        ...(() => {
-          const partes = [venda.observacoes, infAdic].filter(Boolean);
-          return partes.length ? { infAdic: { infCpl: partes.join(' | ').substring(0, 500) } } : {};
-        })(),
       },
     },
   };

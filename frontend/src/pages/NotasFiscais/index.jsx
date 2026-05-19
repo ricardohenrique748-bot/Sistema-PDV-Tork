@@ -19,6 +19,8 @@ export default function NotasFiscais() {
   const [showDetail, setShowDetail] = useState(false);
   const [showCancelar, setShowCancelar] = useState(false);
   const [showCce, setShowCce] = useState(false);
+  const [showEmitir, setShowEmitir] = useState(false);
+  const [pedidoCompra, setPedidoCompra] = useState('');
   const [justificativa, setJustificativa] = useState('');
   const [correcao, setCorrecao] = useState('');
   const [actionLoading, setActionLoading] = useState(false);
@@ -41,11 +43,14 @@ export default function NotasFiscais() {
 
   useEffect(() => { fetchNotas(); }, [fetchNotas]);
 
-  const handleEmitir = async (nf) => {
+  const handleEmitir = async () => {
     setActionLoading(true);
     try {
-      await api.post(`/notas-fiscais/${nf.id}/emitir`);
+      await api.post(`/notas-fiscais/${selected.id}/emitir`, { pedidoCompra: pedidoCompra || undefined });
       toast.success('NF enviada para emissão. Aguarde a autorização da SEFAZ.');
+      setShowEmitir(false);
+      setPedidoCompra('');
+      setSelected(null);
       fetchNotas();
     } catch (err) {
       toast.error(err.response?.data?.error || 'Erro ao emitir NF.');
@@ -211,7 +216,7 @@ export default function NotasFiscais() {
                         <div className="flex items-center gap-1">
                           {/* Emitir */}
                           {['DIGITANDO', 'ERRO'].includes(nf.status) && (
-                            <Button size="sm" variant="primary" onClick={() => handleEmitir(nf)} loading={actionLoading} title="Emitir NF">
+                            <Button size="sm" variant="primary" onClick={() => { setSelected(nf); setPedidoCompra(''); setShowEmitir(true); }} title="Emitir NF">
                               <Send size={12} />
                             </Button>
                           )}
@@ -283,6 +288,32 @@ export default function NotasFiscais() {
           </>
         )}
       </Card>
+
+      {/* Modal Emitir */}
+      <Modal open={showEmitir} onClose={() => setShowEmitir(false)} title="Emitir Nota Fiscal">
+        <div className="space-y-4">
+          <p className="text-sm text-gray-400">
+            NF-e <span className="text-gray-200 font-mono">#{selected?.numero?.toString().padStart(6, '0')}</span>
+          </p>
+          <div>
+            <label className="block text-sm font-medium text-gray-300 mb-1">Pedido de Compra <span className="text-gray-500">(opcional)</span></label>
+            <input
+              type="text"
+              value={pedidoCompra}
+              onChange={e => setPedidoCompra(e.target.value)}
+              placeholder="Ex: PO-12345"
+              className="w-full px-3 py-2 bg-gray-800 border border-gray-700 rounded-lg text-gray-100 text-sm focus:outline-none focus:ring-2 focus:ring-primary-500"
+            />
+            <p className="text-xs text-gray-500 mt-1">Se informado, será incluído no corpo da nota fiscal.</p>
+          </div>
+          <div className="flex gap-2">
+            <Button variant="outline" className="flex-1" onClick={() => setShowEmitir(false)}>Cancelar</Button>
+            <Button variant="primary" className="flex-1" loading={actionLoading} onClick={handleEmitir}>
+              <Send size={14} /> Emitir NF
+            </Button>
+          </div>
+        </div>
+      </Modal>
 
       {/* Modal Cancelamento */}
       <Modal open={showCancelar} onClose={() => setShowCancelar(false)} title="Cancelar Nota Fiscal">

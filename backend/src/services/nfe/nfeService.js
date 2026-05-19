@@ -43,7 +43,8 @@ async function emitirNF(notaFiscalId) {
 
   try {
     // 2. Monta o XML
-    const { xml, chave } = buildXmlNFe({ empresa, nf, venda, cliente, itens: venda.itens, pagamentos: venda.pagamentos });
+    const infAdic = nf.pedidoCompra ? `Pedido de Compra: ${nf.pedidoCompra}` : undefined;
+    const { xml, chave } = buildXmlNFe({ empresa, nf, venda, cliente, itens: venda.itens, pagamentos: venda.pagamentos, infAdic });
 
     // Atualiza a chave no banco antes de assinar
     await prisma.notaFiscal.update({

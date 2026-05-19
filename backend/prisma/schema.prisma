@@ -346,6 +346,7 @@ model NotaFiscal {
   cStat           Int?      // Código status SEFAZ
   focusNFeId      String?   // ID na Focus NF-e API
   ambienteNF      Int       @default(2)
+  pedidoCompra    String?
   totalNF         Decimal   @db.Decimal(10, 2)
   createdAt       DateTime  @default(now())
   updatedAt       DateTime  @updatedAt

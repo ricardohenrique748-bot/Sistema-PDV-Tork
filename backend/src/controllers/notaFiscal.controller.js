@@ -71,6 +71,11 @@ const emitir = async (req, res, next) => {
       return res.status(400).json({ error: `NF com status "${nf.status}" não pode ser emitida.` });
     }
 
+    const { pedidoCompra } = req.body;
+    if (pedidoCompra !== undefined) {
+      await prisma.notaFiscal.update({ where: { id: nf.id }, data: { pedidoCompra: pedidoCompra || null } });
+    }
+
     const jobId = await emitirNotaFiscalJob(nf.id);
     res.json({ message: 'NF enfileirada para emissão.', jobId });
   } catch (err) { next(err); }

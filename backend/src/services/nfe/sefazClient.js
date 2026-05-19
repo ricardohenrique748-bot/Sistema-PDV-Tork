@@ -39,18 +39,12 @@ function createHttpsAgent(pfxBuffer, senha) {
 /**
  * Envia uma requisição SOAP para a SEFAZ
  */
-async function enviarSoap(url, soapAction, xmlCorpo, pfxBuffer, senha, ufCode) {
+async function enviarSoap(url, soapAction, xmlCorpo, pfxBuffer, senha) {
   const agent = createHttpsAgent(pfxBuffer, senha);
 
-  // Envelope SOAP padrão para NFe Autorizacao 4.00
+  // MOC v7.0 §4.4.1: para leiaute 4.00 o SOAP Header (nfeCabecMsg) foi eliminado
   const soapEnvelope = `<?xml version="1.0" encoding="utf-8"?>
 <soap12:Envelope xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xmlns:xsd="http://www.w3.org/2001/XMLSchema" xmlns:soap12="http://www.w3.org/2003/05/soap-envelope">
-  <soap12:Header>
-    <nfeCabecMsg xmlns="http://www.portalfiscal.inf.br/nfe/wsdl/${soapAction}">
-      <cUF>${ufCode}</cUF>
-      <versaoDados>4.00</versaoDados>
-    </nfeCabecMsg>
-  </soap12:Header>
   <soap12:Body>
     <nfeDadosMsg xmlns="http://www.portalfiscal.inf.br/nfe/wsdl/${soapAction}">
       ${xmlCorpo}
@@ -92,7 +86,6 @@ async function autorizarNFe(xmlAssinado, pfxBase64Cripto, senhaCripto, uf, ambie
   const senha = decrypt(senhaCripto);
   const pfxBuffer = Buffer.from(pfxBase64, 'base64');
   
-  const ufCode = getUFCode(uf);
   const urls = getUrls(uf, ambiente, modelo);
 
   // Monta o lote enviando apenas 1 NF (síncrono)
@@ -108,14 +101,13 @@ async function autorizarNFe(xmlAssinado, pfxBase64Cripto, senhaCripto, uf, ambie
     'NFeAutorizacao4',
     loteXml,
     pfxBuffer,
-    senha,
-    ufCode
+    senha
   );
 
   // Parseia a resposta — aceita qualquer prefixo SOAP (soap12:, soapenv:, etc.)
   const envelopeKey = Object.keys(soapResponse).find(k => k.toLowerCase().includes('envelope'));
   if (!envelopeKey) {
-    console.error('[SEFAZ] Resposta inesperada:', JSON.stringify(soapResponse).substring(0, 500));
+    logger.error(`[SEFAZ] Resposta inesperada: ${JSON.stringify(soapResponse).substring(0, 500)}`);
     throw new Error('Resposta inválida da SEFAZ (Envelope não encontrado)');
   }
   const envelope = soapResponse[envelopeKey];
@@ -126,7 +118,7 @@ async function autorizarNFe(xmlAssinado, pfxBase64Cripto, senhaCripto, uf, ambie
   const retEnviNFe = body.nfeResultMsg?.retEnviNFe || body.nfeResultMsg?.['nfeResultMsg']?.retEnviNFe || body?.retEnviNFe;
 
   if (!retEnviNFe) {
-    console.error('[SEFAZ] Body sem retEnviNFe:', JSON.stringify(body).substring(0, 500));
+    logger.error(`[SEFAZ] Body sem retEnviNFe: ${JSON.stringify(body).substring(0, 500)}`);
     throw new Error('Resposta inválida da SEFAZ (retEnviNFe não encontrado)');
   }
 
@@ -162,8 +154,7 @@ async function enviarCancelamento(chave, protocolo, justificativa, pfxBase64Crip
     'NFeRecepcaoEvento4',
     xmlAssinado,
     pfxBuffer,
-    senha,
-    ufCode
+    senha
   );
 
   const body       = soapResponse['soap12:Envelope']['soap12:Body'];

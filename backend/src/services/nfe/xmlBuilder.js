@@ -100,7 +100,7 @@ function buildDest(cliente, isNFCe, empresa) {
         xLgr:   (cliente.logradouro || 'NAO INFORMADO').substring(0, 60),
         nro:    (cliente.numero     || 'S/N').substring(0, 60),
         xBairro:(cliente.bairro     || 'NAO INFORMADO').substring(0, 60),
-        cMun:   cliente.codigoMunicipio || empresa.codigoMunicipio || '3550308',
+        cMun:   cliente.codigoMunicipio || '9999999',
         xMun:   (cliente.municipio  || empresa.municipio || 'SAO PAULO').substring(0, 60),
         UF:     cliente.uf || empresa.uf || 'SP',
         CEP:    (cliente.cep || '').replace(/\D/g, ''),
@@ -118,7 +118,7 @@ function buildDest(cliente, isNFCe, empresa) {
 /**
  * Bloco de itens — retorna array para que xmlbuilder2 gere múltiplos <det>
  */
-function buildItens(itens) {
+function buildItens(itens, crt = 1) {
   return itens.map((item, idx) => {
     const peca    = item.peca || {};
     const vlUnit  = Number(item.valorUnitario || item.precoUnitario || 0);
@@ -146,38 +146,43 @@ function buildItens(itens) {
         ...(vlDesc > 0 ? { vDesc: vlDesc.toFixed(2) } : {}),
         indTot:   '1',
       },
-      imposto: buildImpostoItem(item, peca),
+      imposto: buildImpostoItem(item, peca, crt),
     };
   });
 }
 
 /**
- * Impostos por item – Simples Nacional (CRT 1 ou 2)
+ * Impostos por item
+ * CRT 1/2 → Simples Nacional → CSOSN
+ * CRT 3   → Regime Normal    → CST (ICMS40/41 para não tributado/isento)
  */
-function buildImpostoItem(item, peca = {}) {
-  const csosn = item.csosn || peca.csosn || '400';
+function buildImpostoItem(item, peca = {}, crt = 1) {
+  const orig = item.icmsOrigem || peca.icmsOrigem || '0';
+  let icmsGrupo;
+
+  if (Number(crt) === 3) {
+    const cst = String(item.cst || peca.cst || '41');
+    if (cst === '00') {
+      icmsGrupo = { ICMS00: { orig, CST: '00', modBC: '3', vBC: '0.00', pICMS: '0.00', vICMS: '0.00' } };
+    } else if (cst === '40') {
+      icmsGrupo = { ICMS40: { orig, CST: '40' } };
+    } else if (cst === '60') {
+      icmsGrupo = { ICMS60: { orig, CST: '60', vBCST: '0.00', vICMSST: '0.00' } };
+    } else {
+      icmsGrupo = { ICMS41: { orig, CST: '41' } };
+    }
+  } else {
+    const csosn = item.csosn || peca.csosn || '400';
+    icmsGrupo = { ICMSSN400: { orig, CSOSN: csosn } };
+  }
+
   return {
-    ICMS: {
-      ICMSSN400: {  // Tributado pelo Simples Nacional sem permissão de crédito (mais comum)
-        orig:  item.icmsOrigem || peca.icmsOrigem || '0',
-        CSOSN: csosn,
-      },
-    },
+    ICMS: icmsGrupo,
     PIS: {
-      PISOutr: {
-        CST:   '99',
-        vBC:   '0.00',
-        pPIS:  '0.0000',
-        vPIS:  '0.00',
-      },
+      PISOutr: { CST: '99', vBC: '0.00', pPIS: '0.0000', vPIS: '0.00' },
     },
     COFINS: {
-      COFINSOutr: {
-        CST:      '99',
-        vBC:      '0.00',
-        pCOFINS:  '0.0000',
-        vCOFINS:  '0.00',
-      },
+      COFINSOutr: { CST: '99', vBC: '0.00', pCOFINS: '0.0000', vCOFINS: '0.00' },
     },
   };
 }
@@ -255,7 +260,7 @@ function buildXmlNFe({ empresa, nf, venda, cliente, itens, pagamentos, infAdic }
           CRT: String(empresa.regimeTributario || 1),
         },
         ...buildDest(cliente, isNFCe, empresa),
-        det: buildItens(itens),
+        det: buildItens(itens, empresa.regimeTributario || 1),
         total: {
           ICMSTot: {
             vBC:        '0.00',

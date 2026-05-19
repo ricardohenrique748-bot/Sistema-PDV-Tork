@@ -111,11 +111,21 @@ async function autorizarNFe(xmlAssinado, pfxBase64Cripto, senhaCripto, uf, ambie
     ufCode
   );
 
-  // Parseia a resposta
-  const body = soapResponse['soap12:Envelope']['soap12:Body'];
+  // Parseia a resposta — aceita qualquer prefixo SOAP (soap12:, soapenv:, etc.)
+  const envelopeKey = Object.keys(soapResponse).find(k => k.toLowerCase().includes('envelope'));
+  if (!envelopeKey) {
+    console.error('[SEFAZ] Resposta inesperada:', JSON.stringify(soapResponse).substring(0, 500));
+    throw new Error('Resposta inválida da SEFAZ (Envelope não encontrado)');
+  }
+  const envelope = soapResponse[envelopeKey];
+  const bodyKey  = Object.keys(envelope).find(k => k.toLowerCase().includes('body'));
+  if (!bodyKey) throw new Error('Resposta inválida da SEFAZ (Body não encontrado)');
+  const body = envelope[bodyKey];
+
   const retEnviNFe = body.nfeResultMsg?.retEnviNFe || body.nfeResultMsg?.['nfeResultMsg']?.retEnviNFe || body?.retEnviNFe;
-  
+
   if (!retEnviNFe) {
+    console.error('[SEFAZ] Body sem retEnviNFe:', JSON.stringify(body).substring(0, 500));
     throw new Error('Resposta inválida da SEFAZ (retEnviNFe não encontrado)');
   }
 

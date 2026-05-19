@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { FileText, Plus, Eye, Check, X, Clock, ShoppingCart } from 'lucide-react';
+import { FileText, Plus, Eye, Check, X, Clock, ShoppingCart, Trash2 } from 'lucide-react';
 import {
   Button, Card, PageHeader, Spinner, Modal, EmptyState, Pagination
 } from '../../components/ui/index.jsx';
@@ -60,6 +60,17 @@ export default function Orcamentos() {
       setRefresh(r => r + 1);
     } catch {
       toast.error('Erro ao atualizar status.');
+    }
+  };
+
+  const handleDelete = async (id) => {
+    if (!window.confirm('Excluir este orçamento permanentemente?')) return;
+    try {
+      await api.delete(`/orcamentos/${id}`);
+      toast.success('Orçamento excluído.');
+      setRefresh(r => r + 1);
+    } catch (err) {
+      toast.error(err.response?.data?.error || 'Erro ao excluir orçamento.');
     }
   };
 
@@ -183,6 +194,11 @@ export default function Orcamentos() {
                         {(orc.status === 'PENDENTE' || orc.status === 'APROVADO') && (
                           <Button size="sm" variant="primary" onClick={() => openConverter(orc)} title="Converter em venda">
                             <ShoppingCart size={14} />
+                          </Button>
+                        )}
+                        {orc.status !== 'CONVERTIDO' && (
+                          <Button size="sm" variant="danger" onClick={() => handleDelete(orc.id)} title="Excluir orçamento">
+                            <Trash2 size={14} />
                           </Button>
                         )}
                       </div>

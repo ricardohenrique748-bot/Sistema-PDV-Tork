@@ -9,5 +9,6 @@ router.get('/:id', ctrl.getById);
 router.post('/', ctrl.create);
 router.patch('/:id', ctrl.update);
 router.post('/:id/converter', ctrl.converter);
+router.delete('/:id', ctrl.excluir);
 
 module.exports = router;

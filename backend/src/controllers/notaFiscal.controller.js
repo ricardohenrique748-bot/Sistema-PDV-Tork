@@ -1,5 +1,5 @@
 const prisma = require('../config/prisma');
-const { emitirNF, cancelarNF } = require('../services/nfe/nfeService');
+const { emitirNF, cancelarNF, enviarCartaCorrecao } = require('../services/nfe/focusService');
 const path = require('path');
 const fs = require('fs');
 
@@ -133,8 +133,12 @@ const cartaCorrecao = async (req, res, next) => {
       }
     });
 
-    // TODO: Integrar com Focus para envio real da CC-e
-    res.status(201).json({ message: 'Carta de Correção criada. Envio em processamento.', cce });
+    const resultadoFocus = await enviarCartaCorrecao(req.params.id, correcao, cce.sequencia);
+    await prisma.cartaCorrecao.update({
+      where: { id: cce.id },
+      data: { status: 'ENVIADA', protocolo: resultadoFocus?.numero_protocolo || null },
+    });
+    res.status(201).json({ message: 'Carta de Correção enviada com sucesso.', cce });
   } catch (err) { next(err); }
 };
 

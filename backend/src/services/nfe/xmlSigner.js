@@ -48,7 +48,8 @@ function extrairDoPfx(pfxBuffer, senha) {
  * @returns {string} XML assinado
  */
 function assinarXmlNFe(xmlString, pfxBuffer, senha) {
-  const { privateKeyPem, certB64 } = extrairDoPfx(pfxBuffer, senha);
+  // xml-crypto v6: publicCert no construtor é obrigatório para incluir KeyInfo/X509Certificate
+  const { privateKeyPem, certPem } = extrairDoPfx(pfxBuffer, senha);
 
   // Extrai a chave de acesso do XML para montar o xpath de referência
   const match = xmlString.match(/Id="NFe(\d{44})"/);
@@ -57,6 +58,7 @@ function assinarXmlNFe(xmlString, pfxBuffer, senha) {
 
   const sig = new SignedXml({
     privateKey: privateKeyPem,
+    publicCert: certPem,
     signatureAlgorithm: 'http://www.w3.org/2000/09/xmldsig#rsa-sha1',
     canonicalizationAlgorithm: 'http://www.w3.org/TR/2001/REC-xml-c14n-20010315',
   });
@@ -71,13 +73,6 @@ function assinarXmlNFe(xmlString, pfxBuffer, senha) {
     uri: `#NFe${chave}`,
     isEmptyUri: false,
   });
-
-  // KeyInfo com o certificado X.509
-  sig.keyInfoProvider = {
-    getKeyInfo: () =>
-      `<X509Data><X509Certificate>${certB64}</X509Certificate></X509Data>`,
-    getKey: () => Buffer.from(privateKeyPem),
-  };
 
   sig.computeSignature(xmlString, {
     location: {
@@ -111,7 +106,7 @@ function assinarXmlEventoFromDB(xmlString, pfxBase64Cripto, senhaCripto) {
   const pfxBase64 = decrypt(pfxBase64Cripto);
   const senha     = decrypt(senhaCripto);
   const pfxBuffer = Buffer.from(pfxBase64, 'base64');
-  const { privateKeyPem, certB64 } = extrairDoPfx(pfxBuffer, senha);
+  const { privateKeyPem, certPem } = extrairDoPfx(pfxBuffer, senha);
 
   const match = xmlString.match(/Id="(ID\d+)"/);
   if (!match) throw new Error('Id do evento não encontrado no XML para assinatura');
@@ -119,6 +114,7 @@ function assinarXmlEventoFromDB(xmlString, pfxBase64Cripto, senhaCripto) {
 
   const sig = new SignedXml({
     privateKey: privateKeyPem,
+    publicCert: certPem,
     signatureAlgorithm: 'http://www.w3.org/2000/09/xmldsig#rsa-sha1',
     canonicalizationAlgorithm: 'http://www.w3.org/TR/2001/REC-xml-c14n-20010315',
   });
@@ -133,11 +129,6 @@ function assinarXmlEventoFromDB(xmlString, pfxBase64Cripto, senhaCripto) {
     uri: `#${id}`,
     isEmptyUri: false,
   });
-
-  sig.keyInfoProvider = {
-    getKeyInfo: () => `<X509Data><X509Certificate>${certB64}</X509Certificate></X509Data>`,
-    getKey: () => Buffer.from(privateKeyPem),
-  };
 
   sig.computeSignature(xmlString, {
     location: { reference: `//*[local-name(.)='infEvento']`, action: 'after' },

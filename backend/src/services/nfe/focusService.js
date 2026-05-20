@@ -74,6 +74,13 @@ function buildPayload({ empresa, nf, cliente, itens, pagamentos }) {
 
   // --- Itens ---
   const items = itens.map((item, idx) => {
+    if (!item.ncm) {
+      throw new Error(`Item "${item.descricao || item.codigo}" sem NCM configurado. NCM é obrigatório para emissão de NF-e.`);
+    }
+    if (!item.cfop) {
+      throw new Error(`Item "${item.descricao || item.codigo}" sem CFOP configurado. CFOP é obrigatório para emissão de NF-e.`);
+    }
+
     const valorBruto    = parseFloat(item.valorTotal);
     const valorDesconto = parseFloat(item.desconto || 0);
 
@@ -87,32 +94,41 @@ function buildPayload({ empresa, nf, cliente, itens, pagamentos }) {
       quantidade_comercial:    parseFloat(item.quantidade),
       valor_unitario_comercial: parseFloat(item.valorUnitario),
       valor_bruto:             valorBruto,
-      icms_origem:             '0', // 0 = Nacional
+      icms_origem:             0, // inteiro obrigatório: 0 = Nacional
     };
 
     if (item.cest) itemFocus.codigo_cest = item.cest;
     if (valorDesconto > 0) itemFocus.valor_desconto = valorDesconto;
 
-    // Tributação ICMS
-    if (item.csosn) {
-      const csosn = parseInt(item.csosn);
-      itemFocus.icms_csosn = String(csosn);
-      if (csosn === 900) {
-        itemFocus.icms_base_calculo = parseFloat(item.bcIcms || 0);
-        itemFocus.icms_aliquota     = parseFloat(item.aliqIcms || 0);
-        itemFocus.icms_valor        = parseFloat(item.valorIcms || 0);
-      }
-    } else if (item.cst) {
-      // Regime Normal — usa CST
-      itemFocus.icms_modalidade = parseInt(item.cst);
-      if (['00', '10', '20'].includes(item.cst)) {
-        itemFocus.icms_base_calculo = parseFloat(item.bcIcms || 0);
-        itemFocus.icms_aliquota     = parseFloat(item.aliqIcms || 0);
-        itemFocus.icms_valor        = parseFloat(item.valorIcms || 0);
+    // Tributação ICMS — depende do regime tributário da empresa
+    const isRegimeNormal = empresa.regimeTributario === 3;
+    if (isRegimeNormal) {
+      // Regime Normal (Lucro Presumido/Real): usa CST
+      if (item.cst) {
+        itemFocus.icms_modalidade = parseInt(item.cst);
+        if (['00', '10', '20'].includes(item.cst)) {
+          itemFocus.icms_base_calculo = parseFloat(item.bcIcms || 0);
+          itemFocus.icms_aliquota     = parseFloat(item.aliqIcms || 0);
+          itemFocus.icms_valor        = parseFloat(item.valorIcms || 0);
+        }
+      } else {
+        // Fallback regime normal: CST 40 (Isenta)
+        itemFocus.icms_modalidade = 40;
       }
     } else {
-      // Fallback: CSOSN 400
-      itemFocus.icms_csosn = '400';
+      // Simples Nacional (regime 1 ou 2): usa CSOSN
+      if (item.csosn) {
+        const csosn = parseInt(item.csosn);
+        itemFocus.icms_csosn = String(csosn);
+        if (csosn === 900) {
+          itemFocus.icms_base_calculo = parseFloat(item.bcIcms || 0);
+          itemFocus.icms_aliquota     = parseFloat(item.aliqIcms || 0);
+          itemFocus.icms_valor        = parseFloat(item.valorIcms || 0);
+        }
+      } else {
+        // Fallback SN: CSOSN 400 (sem destaque de ICMS)
+        itemFocus.icms_csosn = '400';
+      }
     }
 
     if (parseFloat(item.valorPis || 0) > 0) {

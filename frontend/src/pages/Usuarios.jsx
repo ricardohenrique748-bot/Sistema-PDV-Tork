@@ -9,6 +9,7 @@ export default function Usuarios() {
   const [search, setSearch] = useState('');
   const [showModal, setShowModal] = useState(false);
   const [editingId, setEditingId] = useState(null);
+  const [confirmDelete, setConfirmDelete] = useState(null);
   
   const [formData, setFormData] = useState({
     nome: '',
@@ -68,6 +69,17 @@ export default function Usuarios() {
       ativo: user.ativo
     });
     setShowModal(true);
+  };
+
+  const handleDelete = async () => {
+    try {
+      await api.delete(`/auth/users/${confirmDelete.id}`);
+      toast.success('Usuário excluído com sucesso!');
+      setConfirmDelete(null);
+      fetchUsuarios();
+    } catch (err) {
+      toast.error(err.response?.data?.error || 'Erro ao excluir usuário');
+    }
   };
 
   const openCreate = () => {
@@ -150,9 +162,12 @@ export default function Usuarios() {
                         {user.ativo ? 'Ativo' : 'Inativo'}
                       </span>
                     </td>
-                    <td className="px-4 py-3 text-right">
+                    <td className="px-4 py-3 text-right flex justify-end gap-1">
                       <button onClick={() => openEdit(user)} className="p-1.5 rounded hover:bg-amber-500/10 text-amber-500 transition-colors" title="Editar">
                         <Edit2 size={16} />
+                      </button>
+                      <button onClick={() => setConfirmDelete(user)} className="p-1.5 rounded hover:bg-red-500/10 text-red-500 transition-colors" title="Excluir">
+                        <Trash2 size={16} />
                       </button>
                     </td>
                   </tr>
@@ -169,6 +184,26 @@ export default function Usuarios() {
           </div>
         )}
       </div>
+
+      {/* Modal de confirmação de exclusão */}
+      {confirmDelete && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4">
+          <div className="w-full max-w-sm rounded-xl p-6 shadow-xl" style={{ background: 'var(--tork-surface)', border: '1px solid var(--tork-border)' }}>
+            <h2 className="text-lg font-semibold mb-2" style={{ color: 'var(--tork-text)' }}>Excluir usuário</h2>
+            <p className="text-sm mb-6" style={{ color: 'var(--tork-text-muted)' }}>
+              Tem certeza que deseja excluir <strong>{confirmDelete.nome}</strong>? Esta ação não pode ser desfeita.
+            </p>
+            <div className="flex gap-3 justify-end">
+              <button onClick={() => setConfirmDelete(null)} className="px-4 py-2 rounded-lg" style={{ color: 'var(--tork-text-muted)' }}>
+                Cancelar
+              </button>
+              <button onClick={handleDelete} className="px-4 py-2 bg-red-600 text-white font-semibold rounded-lg hover:bg-red-700 transition-colors">
+                Excluir
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Modal */}
       {showModal && (

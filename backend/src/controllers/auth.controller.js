@@ -90,6 +90,15 @@ const updateUser = async (req, res, next) => {
   } catch (err) { next(err); }
 };
 
+const deleteUser = async (req, res, next) => {
+  try {
+    const { id } = req.params;
+    if (id === req.user.id) return res.status(400).json({ error: 'Você não pode excluir sua própria conta.' });
+    await prisma.usuario.delete({ where: { id } });
+    res.status(204).send();
+  } catch (err) { next(err); }
+};
+
 const changePassword = async (req, res, next) => {
   try {
     const { novaSenha } = req.body;
@@ -107,4 +116,4 @@ const changePassword = async (req, res, next) => {
   } catch (err) { next(err); }
 };
 
-module.exports = { login, refresh, me, createUser, listUsers, updateUser, changePassword };
+module.exports = { login, refresh, me, createUser, listUsers, updateUser, deleteUser, changePassword };

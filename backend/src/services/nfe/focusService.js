@@ -132,21 +132,21 @@ function buildPayload({ empresa, nf, cliente, itens, pagamentos }) {
     }
 
     if (parseFloat(item.valorPis || 0) > 0) {
-      itemFocus.pis_modalidade          = '01';
+      itemFocus.pis_situacao_tributaria          = '01';
       itemFocus.pis_base_calculo        = valorBruto;
       itemFocus.pis_aliquota_porcentual = (parseFloat(item.valorPis) / valorBruto * 100).toFixed(2);
       itemFocus.pis_valor               = parseFloat(item.valorPis);
     } else {
-      itemFocus.pis_modalidade = '07';
+      itemFocus.pis_situacao_tributaria = '07';
     }
 
     if (parseFloat(item.valorCofins || 0) > 0) {
-      itemFocus.cofins_modalidade          = '01';
+      itemFocus.cofins_situacao_tributaria          = '01';
       itemFocus.cofins_base_calculo        = valorBruto;
       itemFocus.cofins_aliquota_porcentual = (parseFloat(item.valorCofins) / valorBruto * 100).toFixed(2);
       itemFocus.cofins_valor               = parseFloat(item.valorCofins);
     } else {
-      itemFocus.cofins_modalidade = '07';
+      itemFocus.cofins_situacao_tributaria = '07';
     }
 
     return itemFocus;

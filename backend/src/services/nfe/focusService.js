@@ -202,9 +202,15 @@ async function aguardarAutorizacao(ref, modelo, maxTentativas = 8) {
     try {
       const resp = await axios.get(`${BASE_URL}/${endpoint}/${ref}`, { auth: auth() });
       const data = resp.data;
+      logger.info(`[Focus] poll ${i + 1}: status=${data.status} msg=${data.mensagem_sefaz || data.erros?.[0]?.mensagem || ''}`);
       if (data.status !== 'processando_autorizacao') return data;
     } catch (err) {
-      if (err.response?.status === 404) throw new Error('NF não encontrada na Focus após envio.');
+      const httpStatus = err.response?.status;
+      const body = err.response?.data;
+      logger.warn(`[Focus] poll ${i + 1} erro HTTP ${httpStatus}: ${JSON.stringify(body)}`);
+      if (httpStatus === 404) {
+        throw new Error('Focus retornou 404: NF não encontrada. Verifique se o payload foi aceito pelo POST (ver logs acima).');
+      }
       logger.warn(`Polling Focus [${i + 1}/${maxTentativas}]: ${err.message}`);
     }
   }
@@ -309,19 +315,34 @@ async function emitirNF(notaFiscalId) {
 
   try {
     logger.info(`[Focus] POST /${endpoint}?ref=${ref}`);
-    await axios.post(`${BASE_URL}/${endpoint}?ref=${ref}`, payload, { auth: auth() });
+    logger.info(`[Focus] payload itens: ${JSON.stringify(payload.items?.map(i => ({ ncm: i.codigo_ncm, cfop: i.cfop, csosn: i.icms_csosn, origem: i.icms_origem })))}`);
+    const postResp = await axios.post(`${BASE_URL}/${endpoint}?ref=${ref}`, payload, { auth: auth() });
+    logger.info(`[Focus] POST aceito: status=${postResp.status} focus_status=${postResp.data?.status}`);
   } catch (err) {
-    // 422 = NF já enviada com essa ref (idempotente) — continua para polling
-    if (err.response?.status !== 422) {
-      const msg = err.response?.data?.mensagem || err.message;
+    const httpStatus = err.response?.status;
+    const body = err.response?.data;
+    const msg422 = body?.mensagem || body?.erros?.[0]?.mensagem || JSON.stringify(body);
+    logger.warn(`[Focus] POST retornou ${httpStatus}: ${msg422}`);
+
+    if (httpStatus !== 422) {
       await prisma.notaFiscal.update({
         where: { id: notaFiscalId },
-        data:  { status: 'ERRO', xMotivo: msg },
+        data:  { status: 'ERRO', xMotivo: msg422 },
       });
-      throw new Error(`Focus rejeição: ${msg}`);
+      throw new Error(`Focus rejeição ${httpStatus}: ${msg422}`);
     }
-    const msg422 = err.response?.data?.mensagem || err.response?.data?.erros?.[0]?.mensagem || JSON.stringify(err.response?.data);
-    logger.warn(`[Focus] ref ${ref} retornou 422: ${msg422}`);
+
+    // 422 pode ser "já existe" ou erro de validação do payload
+    // Se NÃO for "já existente", é erro real — não adianta fazer polling
+    const jaExiste = msg422?.toLowerCase().includes('existente') || msg422?.toLowerCase().includes('duplicad');
+    if (!jaExiste) {
+      await prisma.notaFiscal.update({
+        where: { id: notaFiscalId },
+        data:  { status: 'ERRO', xMotivo: msg422 },
+      });
+      throw new Error(`Focus validação: ${msg422}`);
+    }
+    logger.warn(`[Focus] ref ${ref} já existia na Focus, consultando status atual.`);
   }
 
   // Aguarda processamento pela Focus / SEFAZ

@@ -95,15 +95,12 @@ function buildPayload({ empresa, nf, cliente, itens, pagamentos }) {
 
     // Tributação ICMS
     if (item.csosn) {
-      // Simples Nacional — usa CSOSN
-      itemFocus.icms_modalidade = parseInt(item.csosn);
-      if ([900, 500, 400, 102, 101].includes(parseInt(item.csosn))) {
-        // Sem tributação efetiva
-      }
-      if (parseInt(item.csosn) === 900) {
-        itemFocus.icms_base_calculo = parseFloat(item.bcIcms || 0);
-        itemFocus.icms_aliquota     = parseFloat(item.aliqIcms || 0);
-        itemFocus.icms_valor        = parseFloat(item.valorIcms || 0);
+      const csosn = parseInt(item.csosn);
+      itemFocus.icms_modalidade  = csosn;
+      itemFocus.icms_base_calculo = 0;
+      if (csosn === 900) {
+        itemFocus.icms_aliquota = parseFloat(item.aliqIcms || 0);
+        itemFocus.icms_valor    = parseFloat(item.valorIcms || 0);
       }
     } else if (item.cst) {
       // Regime Normal — usa CST
@@ -117,7 +114,9 @@ function buildPayload({ empresa, nf, cliente, itens, pagamentos }) {
 
     // PIS / COFINS — CST 07 = isento
     itemFocus.pis_modalidade    = 7;
+    itemFocus.pis_base_calculo  = 0;
     itemFocus.cofins_modalidade = 7;
+    itemFocus.cofins_base_calculo = 0;
 
     if (parseFloat(item.valorPis || 0) > 0) {
       itemFocus.pis_modalidade     = 1;

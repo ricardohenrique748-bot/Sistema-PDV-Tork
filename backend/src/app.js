@@ -25,6 +25,9 @@ const { auditMiddleware } = require('./middlewares/audit');
 
 const app = express();
 
+// Necessário para rate limit funcionar corretamente atrás do proxy da Vercel/AWS
+app.set('trust proxy', 1);
+
 // Security
 app.use(helmet({ crossOriginResourcePolicy: { policy: 'cross-origin' } }));
 app.use(cors({

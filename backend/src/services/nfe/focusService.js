@@ -177,7 +177,7 @@ function buildPayload({ empresa, nf, cliente, itens, pagamentos }) {
     consumidor_final:   isNFCe ? 1 : (cliente?.cnpj ? 0 : 1),
     presenca_comprador: isNFCe ? 1 : 9, // NFC-e = presencial; NF-e = operação não presencial
     ...dest,
-    itens: items, // Focus API espera "itens" (português) para processar tributos corretamente
+    items,
     formas_pagamento: formasPagamento,
   };
 

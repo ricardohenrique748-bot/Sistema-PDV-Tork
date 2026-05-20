@@ -208,10 +208,31 @@ async function emitirNF(notaFiscalId) {
   if (!TOKEN)   throw new Error('FOCUS_NFE_TOKEN não configurado no .env');
 
   const cliente   = nf.cliente || nf.venda?.cliente;
-  const itens     = nf.itens?.length > 0 ? nf.itens : (nf.venda?.itens || []);
   const pagamentos = nf.venda?.pagamentos || [];
 
-  if (itens.length === 0) throw new Error('Nota fiscal sem itens.');
+  const itensRaw = nf.itens?.length > 0 ? nf.itens : (nf.venda?.itens || []);
+  if (itensRaw.length === 0) throw new Error('Nota fiscal sem itens.');
+
+  // Normaliza itens de venda (VendaItem + peca) para o formato esperado pelo buildPayload
+  const itens = itensRaw.map(item => {
+    if (item.peca) {
+      return {
+        codigo:        item.peca.codigo,
+        descricao:     item.peca.nome,
+        ncm:           item.peca.ncm,
+        cfop:          item.peca.cfop,
+        unidade:       item.peca.unidade || 'UN',
+        quantidade:    item.quantidade,
+        valorUnitario: Number(item.precoUnitario),
+        valorTotal:    Number(item.total),
+        desconto:      Number(item.desconto || 0),
+        csosn:         item.peca.csosn,
+        cst:           item.peca.cst,
+        cest:          item.peca.cest,
+      };
+    }
+    return item;
+  });
 
   const ref      = `tork_${notaFiscalId}`;
   const endpoint = nf.modelo === 'NFCE' ? 'nfce' : 'nfe';

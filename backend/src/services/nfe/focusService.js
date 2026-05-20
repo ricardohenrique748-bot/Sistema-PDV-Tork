@@ -195,18 +195,42 @@ async function aguardarAutorizacao(ref, modelo, maxTentativas = 8) {
   throw new Error('Timeout: Focus não retornou autorização após 40 segundos.');
 }
 
-// ─── Busca XML da Focus NF-e ─────────────────────────────────────────────────
+// ─── Busca XML e DANFE da Focus NF-e ─────────────────────────────────────────
 
-async function fetchXmlFromFocus(ref, modelo) {
+function resolveUrl(caminho) {
+  if (!caminho) return null;
+  if (caminho.startsWith('http')) return caminho;
+  const host = BASE_URL.replace(/\/v2$/, '');
+  return `${host}${caminho}`;
+}
+
+async function fetchDocsFromFocus(ref, modelo) {
   const endpoint = modelo === 'NFCE' ? 'nfce' : 'nfe';
   const resp = await axios.get(
     `${BASE_URL}/${endpoint}/${ref}`,
     { auth: auth(), params: { completa: 1 } }
   );
-  const caminhoXml = resp.data?.caminho_xml_nota_fiscal;
-  if (!caminhoXml) return null;
-  const xmlResp = await axios.get(caminhoXml, { auth: auth() });
-  return typeof xmlResp.data === 'string' ? xmlResp.data : null;
+  const data = resp.data;
+  const danfePath = resolveUrl(data?.caminho_danfe) || null;
+
+  let xml = null;
+  const caminhoXml = resolveUrl(data?.caminho_xml_nota_fiscal);
+  if (caminhoXml) {
+    try {
+      const xmlResp = await axios.get(caminhoXml, { auth: auth() });
+      xml = typeof xmlResp.data === 'string' ? xmlResp.data : null;
+    } catch (e) {
+      logger.warn(`[Focus] Falha ao baixar XML de ${caminhoXml}: ${e.message}`);
+    }
+  }
+
+  return { xml, danfePath };
+}
+
+// Mantida para compatibilidade retroativa
+async function fetchXmlFromFocus(ref, modelo) {
+  const { xml } = await fetchDocsFromFocus(ref, modelo);
+  return xml;
 }
 
 // ─── Emissão NF-e / NFC-e ────────────────────────────────────────────────────
@@ -302,13 +326,14 @@ async function emitirNF(notaFiscalId) {
     dataAutorizacao: resultado.data_autorizacao ? new Date(resultado.data_autorizacao) : null,
   };
 
-  // Baixa o XML autorizado da Focus para salvar no banco
+  // Baixa XML e DANFE da Focus para salvar no banco
   if (statusInterno === 'AUTORIZADA') {
     try {
-      const xmlConteudo = await fetchXmlFromFocus(ref, nf.modelo);
-      if (xmlConteudo) updateData.xmlConteudo = xmlConteudo;
+      const { xml, danfePath } = await fetchDocsFromFocus(ref, nf.modelo);
+      if (xml) updateData.xmlConteudo = xml;
+      if (danfePath) updateData.danfePath = danfePath;
     } catch (e) {
-      logger.warn(`[Focus] Falha ao baixar XML da NF ${notaFiscalId}: ${e.message}`);
+      logger.warn(`[Focus] Falha ao baixar documentos da NF ${notaFiscalId}: ${e.message}`);
     }
   }
 
@@ -382,4 +407,4 @@ async function enviarCartaCorrecao(notaFiscalId, correcao, sequencia) {
   return resp.data;
 }
 
-module.exports = { emitirNF, cancelarNF, enviarCartaCorrecao, mapearStatusFocus, fetchXmlFromFocus };
+module.exports = { emitirNF, cancelarNF, enviarCartaCorrecao, mapearStatusFocus, fetchXmlFromFocus, fetchDocsFromFocus };

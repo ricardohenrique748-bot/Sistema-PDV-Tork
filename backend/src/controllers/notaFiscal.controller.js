@@ -1,5 +1,6 @@
 const prisma = require('../config/prisma');
-const { emitirNF, cancelarNF, enviarCartaCorrecao, fetchXmlFromFocus } = require('../services/nfe/focusService');
+const axios = require('axios');
+const { emitirNF, cancelarNF, enviarCartaCorrecao, fetchDocsFromFocus } = require('../services/nfe/focusService');
 const path = require('path');
 const fs = require('fs');
 
@@ -147,37 +148,48 @@ const downloadPDF = async (req, res, next) => {
     const nf = await prisma.notaFiscal.findUnique({ where: { id: req.params.id } });
     if (!nf) return res.status(404).json({ error: 'NF não encontrada.' });
 
+    let danfePath = nf.danfePath;
     let xml = nf.xmlConteudo;
-    if (!xml && nf.xmlPath) {
-      if (fs.existsSync(path.resolve(nf.xmlPath))) {
-        xml = fs.readFileSync(path.resolve(nf.xmlPath), 'utf8');
-      }
+
+    if (!xml && nf.xmlPath && fs.existsSync(path.resolve(nf.xmlPath))) {
+      xml = fs.readFileSync(path.resolve(nf.xmlPath), 'utf8');
     }
 
-    // Fallback: busca XML direto da Focus NF-e se não estiver salvo localmente
-    if (!xml && nf.focusNFeId) {
+    // Busca na Focus se não tiver DANFE nem XML salvos localmente
+    if (!danfePath && !xml && nf.focusNFeId) {
       try {
-        xml = await fetchXmlFromFocus(nf.focusNFeId, nf.modelo);
-        if (xml) await prisma.notaFiscal.update({ where: { id: nf.id }, data: { xmlConteudo: xml } });
+        const docs = await fetchDocsFromFocus(nf.focusNFeId, nf.modelo);
+        danfePath = docs.danfePath;
+        xml = docs.xml;
+        const save = {};
+        if (danfePath) save.danfePath = danfePath;
+        if (xml) save.xmlConteudo = xml;
+        if (Object.keys(save).length) await prisma.notaFiscal.update({ where: { id: nf.id }, data: save });
       } catch (e) {
-        // segue para o erro abaixo se não conseguir
+        // continua para o erro abaixo
       }
     }
 
-    if (!xml) return res.status(404).json({ error: 'XML não disponível para gerar PDF.' });
+    const filename = `danfe_${nf.chaveAcesso || nf.id}.pdf`;
+    res.setHeader('Content-Disposition', `attachment; filename="${filename}"`);
+    res.setHeader('Content-Type', 'application/pdf');
+
+    // Usa o DANFE gerado pela Focus (mais confiável)
+    if (danfePath) {
+      const token = process.env.FOCUS_NFE_TOKEN || '';
+      const pdfResp = await axios.get(danfePath, {
+        auth: { username: token, password: '' },
+        responseType: 'arraybuffer',
+      });
+      return res.send(Buffer.from(pdfResp.data));
+    }
+
+    // Fallback: gera DANFE a partir do XML
+    if (!xml) return res.status(404).json({ error: 'DANFE não disponível para esta nota fiscal.' });
 
     const { DANFe, DANFCe } = require('node-sped-pdf');
-    let pdfBuffer;
-    
-    if (nf.modelo === 'NFE') {
-      pdfBuffer = await DANFe({ xml });
-    } else {
-      pdfBuffer = await DANFCe({ xml });
-    }
-
-    res.setHeader('Content-Type', 'application/pdf');
-    res.setHeader('Content-Disposition', `attachment; filename="danfe_${nf.chaveAcesso || nf.id}.pdf"`);
-    res.send(pdfBuffer);
+    const pdfBuffer = nf.modelo === 'NFE' ? await DANFe({ xml }) : await DANFCe({ xml });
+    return res.send(pdfBuffer);
   } catch (err) { next(err); }
 };
 

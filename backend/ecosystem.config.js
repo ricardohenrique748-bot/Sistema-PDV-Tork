@@ -10,6 +10,8 @@ module.exports = {
       env: {
         NODE_ENV: 'production',
         PORT: 3001,
+        DATABASE_URL: 'postgresql://postgres:Synyster852@database-1.c7umooq222zk.sa-east-1.rds.amazonaws.com:5432/postgres?sslmode=require',
+        DIRECT_URL: 'postgresql://postgres:Synyster852@database-1.c7umooq222zk.sa-east-1.rds.amazonaws.com:5432/postgres?sslmode=require',
       },
       error_file: './logs/pm2-error.log',
       out_file: './logs/pm2-out.log',

@@ -156,12 +156,13 @@ function buildPayload({ empresa, nf, cliente, itens, pagamentos }) {
 
   // --- Payload principal ---
   const payload = {
-    cnpj_emitente:     empresa.cnpj.replace(/\D/g, ''),
-    natureza_operacao: 'Venda de mercadoria',
-    data_emissao:      formatarData(nf.dataEmissao),
-    tipo_documento:    1,         // 1 = saída
+    cnpj_emitente:      empresa.cnpj.replace(/\D/g, ''),
+    regime_tributario:  empresa.regimeTributario || 1, // 1=SN, 2=SN-excesso, 3=Normal
+    natureza_operacao:  'Venda de mercadoria',
+    data_emissao:       formatarData(nf.dataEmissao),
+    tipo_documento:     1,         // 1 = saída
     finalidade_emissao: 1,        // 1 = NF-e normal
-    consumidor_final:  isNFCe ? 1 : (cliente?.cnpj ? 0 : 1),
+    consumidor_final:   isNFCe ? 1 : (cliente?.cnpj ? 0 : 1),
     presenca_comprador: isNFCe ? 1 : 9, // NFC-e = presencial; NF-e = operação não presencial
     ...dest,
     items,

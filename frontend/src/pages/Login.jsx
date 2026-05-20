@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Eye, EyeOff, Loader2, Sun, Moon } from 'lucide-react';
+import { Eye, EyeOff, Loader2, Sun, Moon, X } from 'lucide-react';
 import { useAuthStore } from '../store/authStore';
 import { useThemeStore } from '../store/themeStore';
 import TorkLogo from '../components/ui/TorkLogo';
@@ -12,6 +12,9 @@ export default function LoginPage() {
   const [senha, setSenha] = useState('');
   const [showPass, setShowPass] = useState(false);
   const [loading, setLoading] = useState(false);
+  const [showForgot, setShowForgot] = useState(false);
+  const [forgotEmail, setForgotEmail] = useState('');
+  const [forgotLoading, setForgotLoading] = useState(false);
   const { setAuth } = useAuthStore();
   const { theme, toggleTheme } = useThemeStore();
   const navigate = useNavigate();
@@ -27,6 +30,21 @@ export default function LoginPage() {
       toast.error(err.response?.data?.error || 'Erro ao fazer login.');
     } finally {
       setLoading(false);
+    }
+  };
+
+  const handleForgotPassword = async (e) => {
+    e.preventDefault();
+    setForgotLoading(true);
+    try {
+      await api.post('/auth/forgot-password', { email: forgotEmail });
+      toast.success('Se o e-mail estiver cadastrado, você receberá as instruções em breve.');
+      setShowForgot(false);
+      setForgotEmail('');
+    } catch (err) {
+      toast.error(err.response?.data?.error || 'Erro ao enviar e-mail.');
+    } finally {
+      setForgotLoading(false);
     }
   };
 
@@ -137,14 +155,22 @@ export default function LoginPage() {
               type="submit"
               disabled={loading}
               className="w-full py-3 font-semibold rounded-lg transition-colors flex items-center justify-center gap-2 disabled:opacity-60"
-              style={{
-                background: '#f59e0b',
-                color: '#000',
-              }}
+              style={{ background: '#f59e0b', color: '#000' }}
             >
               {loading && <Loader2 size={18} className="animate-spin" />}
               {loading ? 'Entrando...' : 'Entrar'}
             </button>
+
+            <div className="text-center">
+              <button
+                type="button"
+                onClick={() => setShowForgot(true)}
+                className="text-sm transition-colors hover:underline"
+                style={{ color: '#f59e0b' }}
+              >
+                Esqueci minha senha
+              </button>
+            </div>
           </form>
 
         </div>
@@ -156,6 +182,44 @@ export default function LoginPage() {
           TORK v1.0 · Peças Automotivas · {new Date().getFullYear()}
         </p>
       </div>
+
+      {/* Modal Esqueci minha senha */}
+      {showForgot && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4" style={{ background: 'rgba(0,0,0,0.6)' }}>
+          <div className="w-full max-w-sm rounded-2xl p-6 shadow-xl" style={{ background: 'var(--tork-surface)', border: '1px solid var(--tork-border)' }}>
+            <div className="flex items-center justify-between mb-4">
+              <h3 className="font-semibold text-lg" style={{ color: 'var(--tork-text)' }}>Redefinir senha</h3>
+              <button onClick={() => { setShowForgot(false); setForgotEmail(''); }} style={{ color: 'var(--tork-text-muted)' }}>
+                <X size={20} />
+              </button>
+            </div>
+            <p className="text-sm mb-4" style={{ color: 'var(--tork-text-muted)' }}>
+              Informe seu e-mail cadastrado. Enviaremos um link para você criar uma nova senha.
+            </p>
+            <form onSubmit={handleForgotPassword} className="space-y-4">
+              <input
+                type="email"
+                value={forgotEmail}
+                onChange={e => setForgotEmail(e.target.value)}
+                required
+                autoFocus
+                placeholder="seu@email.com"
+                className="w-full px-4 py-3 rounded-lg"
+                style={{ background: 'var(--tork-input-bg)', border: '1px solid var(--tork-border)', color: 'var(--tork-text)' }}
+              />
+              <button
+                type="submit"
+                disabled={forgotLoading}
+                className="w-full py-3 font-semibold rounded-lg flex items-center justify-center gap-2 disabled:opacity-60"
+                style={{ background: '#f59e0b', color: '#000' }}
+              >
+                {forgotLoading && <Loader2 size={18} className="animate-spin" />}
+                {forgotLoading ? 'Enviando...' : 'Enviar link'}
+              </button>
+            </form>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

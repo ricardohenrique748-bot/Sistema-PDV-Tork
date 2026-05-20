@@ -1,6 +1,8 @@
 const bcrypt = require('bcryptjs');
 const jwt = require('jsonwebtoken');
+const crypto = require('crypto');
 const prisma = require('../config/prisma');
+const { enviarEmailResetSenha } = require('../services/emailService');
 
 const generateTokens = (user) => {
   const payload = { id: user.id, email: user.email, role: user.role, nome: user.nome, primeiroAcesso: user.primeiroAcesso };
@@ -110,6 +112,52 @@ const deleteUser = async (req, res, next) => {
   } catch (err) { next(err); }
 };
 
+const forgotPassword = async (req, res, next) => {
+  try {
+    const { email } = req.body;
+    if (!email) return res.status(400).json({ error: 'E-mail obrigatório.' });
+
+    const user = await prisma.usuario.findUnique({ where: { email } });
+    // Sempre retorna sucesso para não revelar se o email existe
+    if (!user || !user.ativo) {
+      return res.json({ message: 'Se o e-mail estiver cadastrado, você receberá as instruções em breve.' });
+    }
+
+    const token = crypto.randomBytes(32).toString('hex');
+    const expiry = new Date(Date.now() + 3600000); // 1 hora
+
+    await prisma.usuario.update({
+      where: { id: user.id },
+      data: { resetToken: token, resetTokenExpiry: expiry },
+    });
+
+    await enviarEmailResetSenha(user.email, user.nome, token);
+    res.json({ message: 'Se o e-mail estiver cadastrado, você receberá as instruções em breve.' });
+  } catch (err) { next(err); }
+};
+
+const resetPassword = async (req, res, next) => {
+  try {
+    const { token, novaSenha } = req.body;
+    if (!token || !novaSenha) return res.status(400).json({ error: 'Token e nova senha são obrigatórios.' });
+    if (novaSenha.length < 6) return res.status(400).json({ error: 'A senha deve ter no mínimo 6 caracteres.' });
+
+    const user = await prisma.usuario.findFirst({
+      where: { resetToken: token, resetTokenExpiry: { gt: new Date() } },
+    });
+
+    if (!user) return res.status(400).json({ error: 'Token inválido ou expirado. Solicite um novo link.' });
+
+    const hash = await bcrypt.hash(novaSenha, 12);
+    await prisma.usuario.update({
+      where: { id: user.id },
+      data: { senha: hash, resetToken: null, resetTokenExpiry: null, primeiroAcesso: false },
+    });
+
+    res.json({ message: 'Senha redefinida com sucesso. Faça login com a nova senha.' });
+  } catch (err) { next(err); }
+};
+
 const changePassword = async (req, res, next) => {
   try {
     const { novaSenha } = req.body;
@@ -127,4 +175,4 @@ const changePassword = async (req, res, next) => {
   } catch (err) { next(err); }
 };
 
-module.exports = { login, refresh, me, createUser, listUsers, updateUser, deleteUser, changePassword };
+module.exports = { login, refresh, me, createUser, listUsers, updateUser, deleteUser, changePassword, forgotPassword, resetPassword };

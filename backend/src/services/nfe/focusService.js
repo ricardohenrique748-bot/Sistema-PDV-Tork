@@ -136,10 +136,13 @@ function buildPayload({ empresa, nf, cliente, itens, pagamentos }) {
   });
 
   // --- Pagamentos ---
-  let formasPagamento = (pagamentos || []).map(p => ({
-    forma_pagamento: FORMA_PAGAMENTO_MAP[p.forma] || '99',
-    valor_pagamento: parseFloat(p.valor),
-  }));
+  let formasPagamento = (pagamentos || []).map(p => {
+    const forma = FORMA_PAGAMENTO_MAP[p.forma] || '99';
+    const pag = { forma_pagamento: forma, valor_pagamento: parseFloat(p.valor) };
+    // Cartão crédito/débito precisam de integração; outros não
+    if (['03', '04'].includes(forma)) pag.tipo_integracao = 2;
+    return pag;
+  });
 
   if (formasPagamento.length === 0) {
     // Fallback: pagamento à vista em dinheiro com total da NF
@@ -159,6 +162,8 @@ function buildPayload({ empresa, nf, cliente, itens, pagamentos }) {
     items,
     formas_pagamento: formasPagamento,
   };
+
+  payload.modalidade_frete = 9; // 9 = Sem frete
 
   if (nf.pedidoCompra) payload.numero_pedido_compra = nf.pedidoCompra;
 

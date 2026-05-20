@@ -33,6 +33,8 @@ export default function Vendas() {
   const [showCriarNF, setShowCriarNF] = useState(false);
   const [modeloNF, setModeloNF] = useState('NFCE');
   const [criandoNF, setCriandoNF] = useState(false);
+  const [pedidoCompra, setPedidoCompra] = useState('');
+  const [placaCaminhao, setPlacaCaminhao] = useState('');
 
   useEffect(() => {
     let cancelled = false;
@@ -77,9 +79,11 @@ export default function Vendas() {
   const handleCriarNF = async () => {
     setCriandoNF(true);
     try {
-      await api.post(`/vendas/${selected.id}/nota-fiscal`, { modeloNF });
+      await api.post(`/vendas/${selected.id}/nota-fiscal`, { modeloNF, pedidoCompra: pedidoCompra || undefined, placaCaminhao: placaCaminhao || undefined });
       toast.success('NF criada e enfileirada para emissão!');
       setShowCriarNF(false);
+      setPedidoCompra('');
+      setPlacaCaminhao('');
       setRefresh(r => r + 1);
     } catch (err) {
       toast.error(err.response?.data?.error || 'Erro ao criar nota fiscal.');
@@ -373,6 +377,29 @@ export default function Vendas() {
                 <option value="NFCE">NFC-e (Nota Fiscal de Consumidor Eletrônica)</option>
                 <option value="NFE">NF-e (Nota Fiscal Eletrônica)</option>
               </select>
+            </div>
+            <div className="grid grid-cols-2 gap-3">
+              <div>
+                <label className="block text-sm font-medium text-gray-300 mb-1">Pedido de Compra</label>
+                <input
+                  type="text"
+                  value={pedidoCompra}
+                  onChange={e => setPedidoCompra(e.target.value)}
+                  placeholder="Opcional"
+                  className="w-full px-3 py-2 bg-gray-800 border border-gray-700 rounded-lg text-gray-100 text-sm focus:outline-none focus:ring-2 focus:ring-primary-500"
+                />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-300 mb-1">Placa do Caminhão</label>
+                <input
+                  type="text"
+                  value={placaCaminhao}
+                  onChange={e => setPlacaCaminhao(e.target.value.toUpperCase())}
+                  placeholder="ABC1234"
+                  maxLength={8}
+                  className="w-full px-3 py-2 bg-gray-800 border border-gray-700 rounded-lg text-gray-100 text-sm focus:outline-none focus:ring-2 focus:ring-primary-500"
+                />
+              </div>
             </div>
             <div className="flex gap-2 pt-2">
               <Button variant="outline" className="flex-1" onClick={() => setShowCriarNF(false)}>Cancelar</Button>

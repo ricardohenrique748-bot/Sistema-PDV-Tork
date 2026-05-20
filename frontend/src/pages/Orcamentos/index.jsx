@@ -29,6 +29,8 @@ export default function Orcamentos() {
   const [pagamentos, setPagamentos] = useState([{ forma: 'DINHEIRO', valor: '' }]);
   const [emitirNF, setEmitirNF] = useState(false);
   const [modeloNF, setModeloNF] = useState('NFCE');
+  const [pedidoCompra, setPedidoCompra] = useState('');
+  const [placaCaminhao, setPlacaCaminhao] = useState('');
   const [convertendo, setConvertendo] = useState(false);
 
   useEffect(() => {
@@ -86,9 +88,13 @@ export default function Orcamentos() {
         pagamentos: pagamentos.map(p => ({ forma: p.forma, valor: Number(p.valor), parcelas: 1 })),
         emitirNF,
         modeloNF,
+        pedidoCompra: pedidoCompra || undefined,
+        placaCaminhao: placaCaminhao || undefined,
       });
       toast.success('Orçamento convertido em venda com sucesso!');
       setShowConverter(false);
+      setPedidoCompra('');
+      setPlacaCaminhao('');
       setRefresh(r => r + 1);
     } catch (err) {
       toast.error(err.response?.data?.error || 'Erro ao converter orçamento.');
@@ -328,6 +334,32 @@ export default function Orcamentos() {
                 </select>
               )}
             </div>
+
+            {emitirNF && (
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="block text-xs font-medium text-gray-400 mb-1">Pedido de Compra</label>
+                  <input
+                    type="text"
+                    value={pedidoCompra}
+                    onChange={e => setPedidoCompra(e.target.value)}
+                    placeholder="Opcional"
+                    className="w-full px-2 py-2 bg-gray-800 border border-gray-700 rounded-lg text-gray-100 text-xs focus:outline-none focus:ring-2 focus:ring-primary-500"
+                  />
+                </div>
+                <div>
+                  <label className="block text-xs font-medium text-gray-400 mb-1">Placa do Caminhão</label>
+                  <input
+                    type="text"
+                    value={placaCaminhao}
+                    onChange={e => setPlacaCaminhao(e.target.value.toUpperCase())}
+                    placeholder="ABC1234"
+                    maxLength={8}
+                    className="w-full px-2 py-2 bg-gray-800 border border-gray-700 rounded-lg text-gray-100 text-xs focus:outline-none focus:ring-2 focus:ring-primary-500"
+                  />
+                </div>
+              </div>
+            )}
 
             <div className="flex gap-2 pt-2">
               <Button variant="outline" className="flex-1" onClick={() => setShowConverter(false)}>Cancelar</Button>

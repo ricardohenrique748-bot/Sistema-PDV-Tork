@@ -119,6 +119,8 @@ const converter = async (req, res, next) => {
       observacoes: orc.observacoes,
       emitirNF: req.body.emitirNF,
       modeloNF: req.body.modeloNF,
+      pedidoCompra: req.body.pedidoCompra,
+      placaCaminhao: req.body.placaCaminhao,
     });
 
     await prisma.orcamento.update({ where: { id: req.params.id }, data: { status: 'CONVERTIDO' } });

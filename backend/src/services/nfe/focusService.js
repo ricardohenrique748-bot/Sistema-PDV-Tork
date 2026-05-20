@@ -199,6 +199,12 @@ function buildPayload({ empresa, nf, cliente, itens, pagamentos }) {
 
   if (nf.pedidoCompra) payload.numero_pedido_compra = nf.pedidoCompra;
 
+  // Informações adicionais (aparece na seção "Informações Adicionais" do DANFE)
+  const infAdicionais = [];
+  if (nf.pedidoCompra) infAdicionais.push(`Pedido: ${nf.pedidoCompra}`);
+  if (nf.placaCaminhao) infAdicionais.push(`Placa: ${nf.placaCaminhao}`);
+  if (infAdicionais.length > 0) payload.informacoes_adicionais_contribuinte = infAdicionais.join(' | ');
+
   // CSC para NFC-e (QR Code)
   if (isNFCe) {
     if (empresa.csc)   payload.csc    = empresa.csc;

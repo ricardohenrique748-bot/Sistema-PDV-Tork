@@ -350,6 +350,7 @@ model NotaFiscal {
   focusNFeId      String?   // ID na Focus NF-e API
   ambienteNF      Int       @default(2)
   pedidoCompra    String?
+  placaCaminhao   String?
   totalNF         Decimal   @db.Decimal(10, 2)
   createdAt       DateTime  @default(now())
   updatedAt       DateTime  @updatedAt

@@ -50,7 +50,7 @@ const getById = async (req, res, next) => {
 };
 
 // Lógica pura de criação de venda — usada pelo handler HTTP e pelo converter de orçamento
-async function criarVenda({ clienteId, usuarioId, itens, pagamentos, desconto = 0, tipoDesconto = 'VALOR', observacoes, emitirNF = false, modeloNF = 'NFCE' }) {
+async function criarVenda({ clienteId, usuarioId, itens, pagamentos, desconto = 0, tipoDesconto = 'VALOR', observacoes, emitirNF = false, modeloNF = 'NFE' }) {
   if (!itens?.length) { const e = new Error('Nenhum item na venda.'); e.status = 400; throw e; }
   if (!pagamentos?.length) { const e = new Error('Forma de pagamento obrigatória.'); e.status = 400; throw e; }
 
@@ -186,7 +186,7 @@ const cancelar = async (req, res, next) => {
 
 const criarNotaFiscal = async (req, res, next) => {
   try {
-    const { modeloNF = 'NFCE' } = req.body;
+    const { modeloNF = 'NFE' } = req.body;
     const venda = await prisma.venda.findUnique({
       where: { id: req.params.id },
       include: { notaFiscal: true },

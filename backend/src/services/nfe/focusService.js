@@ -272,7 +272,16 @@ async function emitirNF(notaFiscalId) {
   }
 
   // Aguarda processamento pela Focus / SEFAZ
-  const resultado = await aguardarAutorizacao(ref, nf.modelo);
+  let resultado;
+  try {
+    resultado = await aguardarAutorizacao(ref, nf.modelo);
+  } catch (err) {
+    await prisma.notaFiscal.update({
+      where: { id: notaFiscalId },
+      data:  { status: 'ERRO', xMotivo: err.message },
+    });
+    throw err;
+  }
   const statusInterno = mapearStatusFocus(resultado.status);
 
   const updateData = {

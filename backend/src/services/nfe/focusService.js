@@ -295,9 +295,10 @@ async function emitirNF(notaFiscalId) {
     return item;
   });
 
-  // Gera sempre uma nova ref para evitar reutilizar refs de NF rejeitadas/não encontradas na Focus
-  // (se reutilizar ref rejeitada: Focus retorna 422 → polling acha a NF antiga com erro)
-  const ref      = `tork_${notaFiscalId}_${Date.now()}`;
+  // Ref: max 50 chars, apenas [a-zA-Z0-9_] (Focus rejeita hífens e refs longas com 422)
+  // UUID sem hífens = 32 chars. tork_(5) + 32 + _(1) + 10 últimos dígitos do timestamp = 48 chars
+  const cleanId  = notaFiscalId.replace(/-/g, '');
+  const ref      = `tork_${cleanId}_${Date.now().toString().slice(-10)}`;
   const endpoint = nf.modelo === 'NFCE' ? 'nfce' : 'nfe';
   const payload  = buildPayload({ empresa, nf, cliente, itens, pagamentos });
 
@@ -319,7 +320,8 @@ async function emitirNF(notaFiscalId) {
       });
       throw new Error(`Focus rejeição: ${msg}`);
     }
-    logger.warn(`[Focus] ref ${ref} já existia (422), consultando status.`);
+    const msg422 = err.response?.data?.mensagem || err.response?.data?.erros?.[0]?.mensagem || JSON.stringify(err.response?.data);
+    logger.warn(`[Focus] ref ${ref} retornou 422: ${msg422}`);
   }
 
   // Aguarda processamento pela Focus / SEFAZ

@@ -95,10 +95,17 @@ const deleteUser = async (req, res, next) => {
     const { id } = req.params;
     if (id === req.user.id) return res.status(400).json({ error: 'Você não pode excluir sua própria conta.' });
 
-    const vendas = await prisma.venda.count({ where: { usuarioId: id } });
-    if (vendas > 0) return res.status(400).json({ error: 'Este usuário possui vendas vinculadas e não pode ser excluído. Desative-o em vez disso.' });
+    await prisma.$transaction(async (tx) => {
+      const nfs = await tx.notaFiscal.findMany({ where: { usuarioId: id }, select: { id: true } });
+      if (nfs.length > 0) {
+        await tx.cartaCorrecao.deleteMany({ where: { notaFiscalId: { in: nfs.map(n => n.id) } } });
+      }
+      await tx.notaFiscal.deleteMany({ where: { usuarioId: id } });
+      await tx.orcamento.deleteMany({ where: { usuarioId: id } });
+      await tx.venda.deleteMany({ where: { usuarioId: id } });
+      await tx.usuario.delete({ where: { id } });
+    });
 
-    await prisma.usuario.delete({ where: { id } });
     res.status(204).send();
   } catch (err) { next(err); }
 };

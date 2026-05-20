@@ -1,5 +1,5 @@
 const prisma = require('../config/prisma');
-const { emitirNF, cancelarNF, enviarCartaCorrecao } = require('../services/nfe/focusService');
+const { emitirNF, cancelarNF, enviarCartaCorrecao, fetchXmlFromFocus } = require('../services/nfe/focusService');
 const path = require('path');
 const fs = require('fs');
 
@@ -151,6 +151,16 @@ const downloadPDF = async (req, res, next) => {
     if (!xml && nf.xmlPath) {
       if (fs.existsSync(path.resolve(nf.xmlPath))) {
         xml = fs.readFileSync(path.resolve(nf.xmlPath), 'utf8');
+      }
+    }
+
+    // Fallback: busca XML direto da Focus NF-e se não estiver salvo localmente
+    if (!xml && nf.focusNFeId) {
+      try {
+        xml = await fetchXmlFromFocus(nf.focusNFeId, nf.modelo);
+        if (xml) await prisma.notaFiscal.update({ where: { id: nf.id }, data: { xmlConteudo: xml } });
+      } catch (e) {
+        // segue para o erro abaixo se não conseguir
       }
     }
 

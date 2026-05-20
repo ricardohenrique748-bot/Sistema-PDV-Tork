@@ -195,6 +195,20 @@ async function aguardarAutorizacao(ref, modelo, maxTentativas = 8) {
   throw new Error('Timeout: Focus não retornou autorização após 40 segundos.');
 }
 
+// ─── Busca XML da Focus NF-e ─────────────────────────────────────────────────
+
+async function fetchXmlFromFocus(ref, modelo) {
+  const endpoint = modelo === 'NFCE' ? 'nfce' : 'nfe';
+  const resp = await axios.get(
+    `${BASE_URL}/${endpoint}/${ref}`,
+    { auth: auth(), params: { completa: 1 } }
+  );
+  const caminhoXml = resp.data?.caminho_xml_nota_fiscal;
+  if (!caminhoXml) return null;
+  const xmlResp = await axios.get(caminhoXml, { auth: auth() });
+  return typeof xmlResp.data === 'string' ? xmlResp.data : null;
+}
+
 // ─── Emissão NF-e / NFC-e ────────────────────────────────────────────────────
 
 async function emitirNF(notaFiscalId) {
@@ -291,13 +305,7 @@ async function emitirNF(notaFiscalId) {
   // Baixa o XML autorizado da Focus para salvar no banco
   if (statusInterno === 'AUTORIZADA') {
     try {
-      const xmlResp = await axios.get(
-        `${BASE_URL}/${endpoint}/${ref}`,
-        { auth: auth(), params: { completa: 1 } }
-      );
-      const xmlConteudo = xmlResp.data?.caminho_xml_nota_fiscal
-        ? (await axios.get(xmlResp.data.caminho_xml_nota_fiscal)).data
-        : null;
+      const xmlConteudo = await fetchXmlFromFocus(ref, nf.modelo);
       if (xmlConteudo) updateData.xmlConteudo = xmlConteudo;
     } catch (e) {
       logger.warn(`[Focus] Falha ao baixar XML da NF ${notaFiscalId}: ${e.message}`);
@@ -374,4 +382,4 @@ async function enviarCartaCorrecao(notaFiscalId, correcao, sequencia) {
   return resp.data;
 }
 
-module.exports = { emitirNF, cancelarNF, enviarCartaCorrecao, mapearStatusFocus };
+module.exports = { emitirNF, cancelarNF, enviarCartaCorrecao, mapearStatusFocus, fetchXmlFromFocus };

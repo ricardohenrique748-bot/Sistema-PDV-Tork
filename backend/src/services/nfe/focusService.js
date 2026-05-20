@@ -96,7 +96,7 @@ function buildPayload({ empresa, nf, cliente, itens, pagamentos }) {
     // Tributação ICMS
     if (item.csosn) {
       const csosn = parseInt(item.csosn);
-      itemFocus.icms_modalidade  = csosn;
+      itemFocus.icms_modalidade   = csosn;
       itemFocus.icms_base_calculo = 0;
       if (csosn === 900) {
         itemFocus.icms_aliquota = parseFloat(item.aliqIcms || 0);
@@ -109,7 +109,13 @@ function buildPayload({ empresa, nf, cliente, itens, pagamentos }) {
         itemFocus.icms_base_calculo = parseFloat(item.bcIcms || 0);
         itemFocus.icms_aliquota     = parseFloat(item.aliqIcms || 0);
         itemFocus.icms_valor        = parseFloat(item.valorIcms || 0);
+      } else {
+        itemFocus.icms_base_calculo = 0;
       }
+    } else {
+      // Fallback: Simples Nacional sem crédito (CSOSN 400) — garante bloco <imposto> no XML
+      itemFocus.icms_modalidade   = 400;
+      itemFocus.icms_base_calculo = 0;
     }
 
     // PIS / COFINS — CST 07 = isento

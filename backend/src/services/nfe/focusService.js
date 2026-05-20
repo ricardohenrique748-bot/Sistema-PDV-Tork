@@ -74,6 +74,13 @@ function buildPayload({ empresa, nf, cliente, itens, pagamentos }) {
     dest.codigo_municipio_destinatario = cliente.codigoMunicipio || undefined;
   }
 
+  // --- Verifica se operação é interestadual ---
+  // CFOP 5xxx = operação interna (mesmo estado); 6xxx = interestadual
+  // Se emitente e destinatário são de UFs diferentes, ajusta CFOP 5xxx → 6xxx
+  const ufEmitente     = (empresa.uf || '').toUpperCase();
+  const ufDestinatario = (cliente?.uf || '').toUpperCase();
+  const isInterestadual = !isNFCe && ufDestinatario && ufEmitente && ufDestinatario !== ufEmitente;
+
   // --- Itens ---
   const items = itens.map((item, idx) => {
     if (!item.ncm) {
@@ -83,6 +90,11 @@ function buildPayload({ empresa, nf, cliente, itens, pagamentos }) {
       throw new Error(`Item "${item.descricao || item.codigo}" sem CFOP configurado. CFOP é obrigatório para emissão de NF-e.`);
     }
 
+    // Ajusta CFOP para operação interestadual: 5xxx → 6xxx
+    const cfopAjustado = isInterestadual && String(item.cfop).startsWith('5')
+      ? String(item.cfop).replace(/^5/, '6')
+      : String(item.cfop);
+
     const valorBruto    = parseFloat(item.valorTotal);
     const valorDesconto = parseFloat(item.desconto || 0);
 
@@ -91,7 +103,7 @@ function buildPayload({ empresa, nf, cliente, itens, pagamentos }) {
       codigo_produto:          item.codigo,
       descricao:               item.descricao,
       codigo_ncm:              item.ncm,
-      cfop:                    item.cfop,
+      cfop:                    cfopAjustado,
       unidade_comercial:       item.unidade,
       quantidade_comercial:    parseFloat(item.quantidade),
       valor_unitario_comercial: parseFloat(item.valorUnitario),

@@ -96,11 +96,12 @@ function buildPayload({ empresa, nf, cliente, itens, pagamentos }) {
     // Tributação ICMS
     if (item.csosn) {
       const csosn = parseInt(item.csosn);
-      itemFocus.icms_modalidade   = csosn;
-      itemFocus.icms_base_calculo = 0;
+      itemFocus.icms_modalidade = csosn;
+      // CSOSN 400/500/102 etc: sem base_calculo (Focus gera ICMSSN correto sem esse campo)
       if (csosn === 900) {
-        itemFocus.icms_aliquota = parseFloat(item.aliqIcms || 0);
-        itemFocus.icms_valor    = parseFloat(item.valorIcms || 0);
+        itemFocus.icms_base_calculo = parseFloat(item.bcIcms || 0);
+        itemFocus.icms_aliquota     = parseFloat(item.aliqIcms || 0);
+        itemFocus.icms_valor        = parseFloat(item.valorIcms || 0);
       }
     } else if (item.cst) {
       // Regime Normal — usa CST
@@ -109,32 +110,30 @@ function buildPayload({ empresa, nf, cliente, itens, pagamentos }) {
         itemFocus.icms_base_calculo = parseFloat(item.bcIcms || 0);
         itemFocus.icms_aliquota     = parseFloat(item.aliqIcms || 0);
         itemFocus.icms_valor        = parseFloat(item.valorIcms || 0);
-      } else {
-        itemFocus.icms_base_calculo = 0;
       }
     } else {
-      // Fallback: Simples Nacional sem crédito (CSOSN 400) — garante bloco <imposto> no XML
-      itemFocus.icms_modalidade   = 400;
-      itemFocus.icms_base_calculo = 0;
+      // Fallback: CSOSN 400
+      itemFocus.icms_modalidade = 400;
     }
 
-    // PIS / COFINS — CST 07 = isento
-    itemFocus.pis_modalidade    = 7;
-    itemFocus.pis_base_calculo  = 0;
-    itemFocus.cofins_modalidade = 7;
-    itemFocus.cofins_base_calculo = 0;
-
+    // PIS / COFINS — CST 07 (isento): só modalidade, sem base_calculo
+    // Focus gera <PISNT>/<COFINSNT> quando não há base_calculo
     if (parseFloat(item.valorPis || 0) > 0) {
-      itemFocus.pis_modalidade     = 1;
-      itemFocus.pis_base_calculo   = valorBruto;
+      itemFocus.pis_modalidade          = 1;
+      itemFocus.pis_base_calculo        = valorBruto;
       itemFocus.pis_aliquota_porcentual = (parseFloat(item.valorPis) / valorBruto * 100).toFixed(2);
-      itemFocus.pis_valor          = parseFloat(item.valorPis);
+      itemFocus.pis_valor               = parseFloat(item.valorPis);
+    } else {
+      itemFocus.pis_modalidade = 7;
     }
+
     if (parseFloat(item.valorCofins || 0) > 0) {
-      itemFocus.cofins_modalidade     = 1;
-      itemFocus.cofins_base_calculo   = valorBruto;
+      itemFocus.cofins_modalidade          = 1;
+      itemFocus.cofins_base_calculo        = valorBruto;
       itemFocus.cofins_aliquota_porcentual = (parseFloat(item.valorCofins) / valorBruto * 100).toFixed(2);
-      itemFocus.cofins_valor          = parseFloat(item.valorCofins);
+      itemFocus.cofins_valor               = parseFloat(item.valorCofins);
+    } else {
+      itemFocus.cofins_modalidade = 7;
     }
 
     return itemFocus;

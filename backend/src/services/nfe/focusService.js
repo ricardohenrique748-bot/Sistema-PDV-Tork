@@ -239,7 +239,8 @@ async function emitirNF(notaFiscalId) {
     return item;
   });
 
-  const ref      = `tork_${notaFiscalId}`;
+  // Usa ref existente (reenvio) ou gera nova única para evitar conflito com tentativas anteriores
+  const ref      = nf.focusNFeId || `tork_${notaFiscalId}_${Date.now()}`;
   const endpoint = nf.modelo === 'NFCE' ? 'nfce' : 'nfe';
   const payload  = buildPayload({ empresa, nf, cliente, itens, pagamentos });
 

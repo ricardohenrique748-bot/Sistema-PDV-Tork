@@ -87,7 +87,7 @@ function buildPayload({ empresa, nf, cliente, itens, pagamentos }) {
       quantidade_comercial:    parseFloat(item.quantidade),
       valor_unitario_comercial: parseFloat(item.valorUnitario),
       valor_bruto:             valorBruto,
-      icms_origem:             0, // 0 = Nacional
+      icms_origem:             '0', // 0 = Nacional
     };
 
     if (item.cest) itemFocus.codigo_cest = item.cest;
@@ -96,8 +96,7 @@ function buildPayload({ empresa, nf, cliente, itens, pagamentos }) {
     // Tributação ICMS
     if (item.csosn) {
       const csosn = parseInt(item.csosn);
-      itemFocus.icms_modalidade = csosn;
-      // CSOSN 400/500/102 etc: sem base_calculo (Focus gera ICMSSN correto sem esse campo)
+      itemFocus.icms_csosn = String(csosn);
       if (csosn === 900) {
         itemFocus.icms_base_calculo = parseFloat(item.bcIcms || 0);
         itemFocus.icms_aliquota     = parseFloat(item.aliqIcms || 0);
@@ -113,27 +112,25 @@ function buildPayload({ empresa, nf, cliente, itens, pagamentos }) {
       }
     } else {
       // Fallback: CSOSN 400
-      itemFocus.icms_modalidade = 400;
+      itemFocus.icms_csosn = '400';
     }
 
-    // PIS / COFINS — CST 07 (isento): só modalidade, sem base_calculo
-    // Focus gera <PISNT>/<COFINSNT> quando não há base_calculo
     if (parseFloat(item.valorPis || 0) > 0) {
-      itemFocus.pis_modalidade          = 1;
+      itemFocus.pis_modalidade          = '01';
       itemFocus.pis_base_calculo        = valorBruto;
       itemFocus.pis_aliquota_porcentual = (parseFloat(item.valorPis) / valorBruto * 100).toFixed(2);
       itemFocus.pis_valor               = parseFloat(item.valorPis);
     } else {
-      itemFocus.pis_modalidade = 7;
+      itemFocus.pis_modalidade = '07';
     }
 
     if (parseFloat(item.valorCofins || 0) > 0) {
-      itemFocus.cofins_modalidade          = 1;
+      itemFocus.cofins_modalidade          = '01';
       itemFocus.cofins_base_calculo        = valorBruto;
       itemFocus.cofins_aliquota_porcentual = (parseFloat(item.valorCofins) / valorBruto * 100).toFixed(2);
       itemFocus.cofins_valor               = parseFloat(item.valorCofins);
     } else {
-      itemFocus.cofins_modalidade = 7;
+      itemFocus.cofins_modalidade = '07';
     }
 
     return itemFocus;

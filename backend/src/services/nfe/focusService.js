@@ -30,10 +30,12 @@ function mapearStatusFocus(statusFocus) {
   return STATUS_MAP[statusFocus] || 'ERRO';
 }
 
-// Formata data para ISO 8601 com fuso horário de Brasília
+// Formata data para ISO 8601 no fuso de Brasília (UTC-3)
+// IMPORTANTE: toISOString() retorna UTC; é preciso subtrair 3h antes de trocar 'Z' por '-03:00'
 function formatarData(date) {
   const d = date ? new Date(date) : new Date();
-  return d.toISOString().replace('Z', '-03:00');
+  const br = new Date(d.getTime() - 3 * 60 * 60 * 1000); // UTC → UTC-3
+  return br.toISOString().replace('Z', '-03:00');
 }
 
 // Monta o payload JSON para a Focus NF-e / NFC-e

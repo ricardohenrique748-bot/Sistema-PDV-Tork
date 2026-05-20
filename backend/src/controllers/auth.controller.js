@@ -94,6 +94,10 @@ const deleteUser = async (req, res, next) => {
   try {
     const { id } = req.params;
     if (id === req.user.id) return res.status(400).json({ error: 'Você não pode excluir sua própria conta.' });
+
+    const vendas = await prisma.venda.count({ where: { usuarioId: id } });
+    if (vendas > 0) return res.status(400).json({ error: 'Este usuário possui vendas vinculadas e não pode ser excluído. Desative-o em vez disso.' });
+
     await prisma.usuario.delete({ where: { id } });
     res.status(204).send();
   } catch (err) { next(err); }

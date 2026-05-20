@@ -98,22 +98,28 @@ async function criarVenda({ clienteId, usuarioId, itens, pagamentos, desconto = 
         itens: { create: vendaItens },
         pagamentos: { create: pagamentos.map(p => ({ forma: p.forma, valor: Number(p.valor), parcelas: p.parcelas || 1 })) },
       },
-      include: { itens: true, pagamentos: true }
+      select: { id: true, numero: true },
     });
 
-    for (const item of vendaItens) {
-      const peca = pecaMap[item.pecaId];
-      if (peca.tipo === 'SERVICO') continue;
-      const novoEstoque = peca.estoqueAtual - item.quantidade;
-      await tx.peca.update({ where: { id: item.pecaId }, data: { estoqueAtual: novoEstoque } });
-      await tx.movimentacaoEstoque.create({
-        data: {
-          pecaId: item.pecaId, tipo: 'SAIDA', quantidade: item.quantidade,
-          estoqueAnterior: peca.estoqueAtual, estoqueAtual: novoEstoque,
-          motivo: `Venda #${novaVenda.numero}`, referenciaId: novaVenda.id,
-        }
-      });
-    }
+    // Paralleliza atualizações de estoque para reduzir latência com múltiplos itens
+    await Promise.all(
+      vendaItens
+        .filter(item => pecaMap[item.pecaId].tipo !== 'SERVICO')
+        .map(item => {
+          const peca = pecaMap[item.pecaId];
+          const novoEstoque = peca.estoqueAtual - item.quantidade;
+          return Promise.all([
+            tx.peca.update({ where: { id: item.pecaId }, data: { estoqueAtual: novoEstoque } }),
+            tx.movimentacaoEstoque.create({
+              data: {
+                pecaId: item.pecaId, tipo: 'SAIDA', quantidade: item.quantidade,
+                estoqueAnterior: peca.estoqueAtual, estoqueAtual: novoEstoque,
+                motivo: `Venda #${novaVenda.numero}`, referenciaId: novaVenda.id,
+              }
+            }),
+          ]);
+        })
+    );
     return novaVenda;
   });
 

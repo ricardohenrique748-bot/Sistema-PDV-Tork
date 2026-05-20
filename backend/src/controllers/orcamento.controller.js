@@ -1,4 +1,5 @@
 const prisma = require('../config/prisma');
+const { criarVenda } = require('./venda.controller');
 
 const list = async (req, res, next) => {
   try {
@@ -108,7 +109,6 @@ const converter = async (req, res, next) => {
       return res.status(400).json({ error: 'Somente orçamentos pendentes ou aprovados podem ser convertidos.' });
     }
 
-    const { criarVenda } = require('./venda.controller');
     const result = await criarVenda({
       clienteId: orc.clienteId,
       usuarioId: req.user.id,

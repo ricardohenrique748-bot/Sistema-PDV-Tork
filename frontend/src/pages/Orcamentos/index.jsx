@@ -87,9 +87,9 @@ export default function Orcamentos() {
         emitirNF,
         modeloNF,
       });
-      toast.success('Orçamento convertido em venda!');
+      toast.success('Orçamento convertido em venda com sucesso!');
       setShowConverter(false);
-      navigate('/vendas');
+      setRefresh(r => r + 1);
     } catch (err) {
       toast.error(err.response?.data?.error || 'Erro ao converter orçamento.');
     } finally {

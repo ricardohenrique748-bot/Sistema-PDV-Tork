@@ -14,9 +14,11 @@ const getEmpresa = async (req, res, next) => {
 
 const upsertEmpresa = async (req, res, next) => {
   try {
-    const empresa = await prisma.empresa.findFirst();
     const data = { ...req.body };
     delete data.certificados;
+    if (data.cnpj) data.cnpj = data.cnpj.replace(/\D/g, '');
+
+    const empresa = await prisma.empresa.findFirst();
     if (empresa) {
       const updated = await prisma.empresa.update({ where: { id: empresa.id }, data });
       return res.json(updated);

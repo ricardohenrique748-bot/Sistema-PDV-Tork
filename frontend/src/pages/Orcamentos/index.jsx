@@ -97,7 +97,8 @@ export default function Orcamentos() {
       setPlacaCaminhao('');
       setRefresh(r => r + 1);
     } catch (err) {
-      toast.error(err.response?.data?.error || 'Erro ao converter orçamento.');
+      const msg = err.response?.data?.error || err.response?.data?.message || err.message || 'Erro ao converter orçamento.';
+      toast.error(msg, { duration: 8000 });
     } finally {
       setConvertendo(false);
     }

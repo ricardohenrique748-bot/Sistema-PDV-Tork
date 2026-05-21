@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Eye, EyeOff, Loader2, Sun, Moon, X } from 'lucide-react';
 import { useAuthStore } from '../store/authStore';
@@ -12,6 +12,17 @@ export default function LoginPage() {
   const [senha, setSenha] = useState('');
   const [showPass, setShowPass] = useState(false);
   const [loading, setLoading] = useState(false);
+  const [lembrar, setLembrar] = useState(false);
+
+  useEffect(() => {
+    const saved = localStorage.getItem('tork_saved_credentials');
+    if (saved) {
+      const { email: e, senha: s } = JSON.parse(saved);
+      setEmail(e || '');
+      setSenha(s || '');
+      setLembrar(true);
+    }
+  }, []);
   const [showForgot, setShowForgot] = useState(false);
   const [forgotEmail, setForgotEmail] = useState('');
   const [forgotLoading, setForgotLoading] = useState(false);
@@ -24,6 +35,11 @@ export default function LoginPage() {
     setLoading(true);
     try {
       const { data } = await api.post('/auth/login', { email, senha });
+      if (lembrar) {
+        localStorage.setItem('tork_saved_credentials', JSON.stringify({ email, senha }));
+      } else {
+        localStorage.removeItem('tork_saved_credentials');
+      }
       setAuth(data.user, data.token, data.refreshToken);
       navigate('/');
     } catch (err) {
@@ -150,6 +166,18 @@ export default function LoginPage() {
                 </button>
               </div>
             </div>
+
+            <label className="flex items-center gap-2 cursor-pointer select-none">
+              <input
+                type="checkbox"
+                checked={lembrar}
+                onChange={e => setLembrar(e.target.checked)}
+                className="w-4 h-4 rounded accent-amber-500 cursor-pointer"
+              />
+              <span className="text-sm" style={{ color: 'var(--tork-text-muted)' }}>
+                Lembrar acesso
+              </span>
+            </label>
 
             <button
               type="submit"

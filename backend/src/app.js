@@ -39,6 +39,8 @@ app.use(cors({
       'http://localhost:5173',
       'http://localhost:3000',
       'https://sistema-pdv-tork.vercel.app',
+      'https://torkrl.com.br',
+      'https://www.torkrl.com.br',
     ];
 
     // Adiciona FRONTEND_URL do ambiente se definido

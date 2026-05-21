@@ -114,6 +114,17 @@ export default function NotasFiscais() {
     }
   };
 
+  const handleLimparCanceladas = async () => {
+    if (!window.confirm('Excluir todas as notas fiscais canceladas permanentemente?')) return;
+    try {
+      const { data } = await api.delete('/notas-fiscais/canceladas/limpar');
+      toast.success(data.message);
+      fetchNotas();
+    } catch (err) {
+      toast.error(err.response?.data?.error || 'Erro ao limpar canceladas.');
+    }
+  };
+
   const statusColors = {
     AUTORIZADA: 'badge-success',
     ENVIADA: 'badge-info',
@@ -131,6 +142,9 @@ export default function NotasFiscais() {
         subtitle="Gerencie NF-e e NFC-e emitidas"
         action={
           <div className="flex gap-2">
+            <Button variant="danger" size="sm" onClick={handleLimparCanceladas}>
+              <Trash2 size={14} /> Limpar canceladas
+            </Button>
             <Button variant="outline" size="sm" onClick={fetchNotas}>
               <RefreshCw size={14} /> Atualizar
             </Button>

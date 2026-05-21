@@ -198,8 +198,8 @@ const excluir = async (req, res, next) => {
     const nf = await prisma.notaFiscal.findUnique({ where: { id: req.params.id } });
     if (!nf) return res.status(404).json({ error: 'NF não encontrada.' });
 
-    if (!['DIGITANDO', 'ERRO'].includes(nf.status)) {
-      return res.status(400).json({ error: 'Apenas notas em digitação ou com erro podem ser excluídas.' });
+    if (!['DIGITANDO', 'ERRO', 'CANCELADA'].includes(nf.status)) {
+      return res.status(400).json({ error: 'Apenas notas em digitação, com erro ou canceladas podem ser excluídas.' });
     }
 
     await prisma.notaFiscal.delete({ where: { id: req.params.id } });
@@ -207,4 +207,11 @@ const excluir = async (req, res, next) => {
   } catch (err) { next(err); }
 };
 
-module.exports = { list, getById, getStatus, emitir, cancelar, downloadXML, downloadPDF, cartaCorrecao, excluir };
+const excluirCanceladas = async (req, res, next) => {
+  try {
+    const { count } = await prisma.notaFiscal.deleteMany({ where: { status: 'CANCELADA' } });
+    res.json({ message: `${count} nota(s) cancelada(s) excluída(s) com sucesso.`, count });
+  } catch (err) { next(err); }
+};
+
+module.exports = { list, getById, getStatus, emitir, cancelar, downloadXML, downloadPDF, cartaCorrecao, excluir, excluirCanceladas };

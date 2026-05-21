@@ -12,6 +12,7 @@ router.get('/:id/pdf', ctrl.downloadPDF);
 router.post('/:id/emitir', authorize('ADMIN', 'FINANCEIRO', 'VENDEDOR'), ctrl.emitir);
 router.post('/:id/cancelar', authorize('ADMIN', 'FINANCEIRO'), ctrl.cancelar);
 router.post('/:id/carta-correcao', authorize('ADMIN', 'FINANCEIRO'), ctrl.cartaCorrecao);
+router.delete('/canceladas/limpar', authorize('ADMIN', 'FINANCEIRO'), ctrl.excluirCanceladas);
 router.delete('/:id', authorize('ADMIN', 'FINANCEIRO'), ctrl.excluir);
 
 module.exports = router;

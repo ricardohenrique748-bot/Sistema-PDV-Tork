@@ -83,8 +83,12 @@ function buildPayload({ empresa, nf, cliente, itens, pagamentos }) {
 
   // --- Itens ---
   const items = itens.map((item, idx) => {
-    if (!item.ncm) {
+    const ncmLimpo = (item.ncm || '').replace(/\D/g, '');
+    if (!ncmLimpo) {
       throw new Error(`Item "${item.descricao || item.codigo}" sem NCM configurado. NCM é obrigatório para emissão de NF-e.`);
+    }
+    if (ncmLimpo.length !== 8) {
+      throw new Error(`Item "${item.descricao || item.codigo}": NCM "${item.ncm}" inválido — deve ter exatamente 8 dígitos (atual: ${ncmLimpo.length}).`);
     }
     if (!item.cfop) {
       throw new Error(`Item "${item.descricao || item.codigo}" sem CFOP configurado. CFOP é obrigatório para emissão de NF-e.`);
@@ -102,7 +106,7 @@ function buildPayload({ empresa, nf, cliente, itens, pagamentos }) {
       numero_item:             idx + 1,
       codigo_produto:          item.codigo,
       descricao:               item.descricao,
-      codigo_ncm:              item.ncm,
+      codigo_ncm:              ncmLimpo,
       cfop:                    cfopAjustado,
       unidade_comercial:       item.unidade,
       quantidade_comercial:    parseFloat(item.quantidade),

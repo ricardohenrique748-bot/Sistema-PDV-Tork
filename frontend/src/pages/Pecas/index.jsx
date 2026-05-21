@@ -388,7 +388,13 @@ export default function Pecas() {
               <div className="col-span-2 border-t border-gray-700 pt-3">
                 <p className="text-xs font-semibold text-gray-400 uppercase mb-3">Dados Fiscais</p>
                 <div className="grid grid-cols-3 gap-3">
-                  <Input label="NCM" value={form.ncm} onChange={e => setF('ncm', e.target.value)} placeholder="8 dígitos" />
+                  <Input
+                    label="NCM"
+                    value={form.ncm}
+                    onChange={e => setF('ncm', e.target.value.replace(/\D/g, '').slice(0, 8))}
+                    placeholder="8 dígitos"
+                    maxLength={8}
+                  />
                   <Input label="CEST" value={form.cest} onChange={e => setF('cest', e.target.value)} />
                   <Input label="CFOP" value={form.cfop} onChange={e => setF('cfop', e.target.value)} placeholder="5102" />
                   <Input label="CSOSN" value={form.csosn} onChange={e => setF('csosn', e.target.value)} placeholder="400" />

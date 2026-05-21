@@ -198,10 +198,6 @@ const excluir = async (req, res, next) => {
     const nf = await prisma.notaFiscal.findUnique({ where: { id: req.params.id } });
     if (!nf) return res.status(404).json({ error: 'NF não encontrada.' });
 
-    if (!['DIGITANDO', 'ERRO', 'CANCELADA'].includes(nf.status)) {
-      return res.status(400).json({ error: 'Apenas notas em digitação, com erro ou canceladas podem ser excluídas.' });
-    }
-
     await prisma.notaFiscal.delete({ where: { id: req.params.id } });
     res.json({ message: 'NF excluída com sucesso.' });
   } catch (err) { next(err); }

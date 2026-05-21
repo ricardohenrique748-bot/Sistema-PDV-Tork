@@ -249,7 +249,7 @@ export default function NotasFiscais() {
                             </Button>
                           )}
                           {/* Excluir */}
-                          {['DIGITANDO', 'ERRO'].includes(nf.status) && (
+                          {['DIGITANDO', 'ERRO', 'CANCELADA', 'AUTORIZADA'].includes(nf.status) && (
                             <Button size="sm" variant="danger" onClick={() => handleDelete(nf.id)} loading={actionLoading} title="Excluir NF">
                               <Trash2 size={12} />
                             </Button>

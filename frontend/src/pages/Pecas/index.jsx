@@ -307,12 +307,46 @@ export default function Pecas() {
               className={isServico ? 'col-span-2' : 'col-span-2'}
             />
 
-            <Input
-              label="Unidade"
-              value={form.unidade}
-              onChange={e => setF('unidade', e.target.value)}
-              placeholder={isServico ? 'HR' : 'UN'}
-            />
+            <div className="space-y-1">
+              <label className="block text-sm font-medium text-gray-300">Unidade</label>
+              <select
+                value={form.unidade}
+                onChange={e => setF('unidade', e.target.value)}
+                className="w-full px-3 py-2 bg-gray-800 border border-gray-700 rounded-lg text-gray-100 text-sm focus:outline-none focus:ring-2 focus:ring-primary-500"
+              >
+                {isServico ? (
+                  <>
+                    <option value="HR">HR – Hora</option>
+                    <option value="MIN">MIN – Minuto</option>
+                    <option value="DIA">DIA – Dia</option>
+                    <option value="SV">SV – Serviço</option>
+                  </>
+                ) : (
+                  <>
+                    <option value="UN">UN – Unidade</option>
+                    <option value="PC">PC – Peça</option>
+                    <option value="PAR">PAR – Par</option>
+                    <option value="JG">JG – Jogo</option>
+                    <option value="KIT">KIT – Kit</option>
+                    <option value="CJ">CJ – Conjunto</option>
+                    <option value="KG">KG – Quilograma</option>
+                    <option value="G">G – Grama</option>
+                    <option value="T">T – Tonelada</option>
+                    <option value="L">L – Litro</option>
+                    <option value="ML">ML – Mililitro</option>
+                    <option value="M">M – Metro</option>
+                    <option value="CM">CM – Centímetro</option>
+                    <option value="M2">M² – Metro quadrado</option>
+                    <option value="M3">M³ – Metro cúbico</option>
+                    <option value="CX">CX – Caixa</option>
+                    <option value="PCT">PCT – Pacote</option>
+                    <option value="RL">RL – Rolo</option>
+                    <option value="FD">FD – Fardo</option>
+                    <option value="SC">SC – Saco</option>
+                  </>
+                )}
+              </select>
+            </div>
 
             <div className="space-y-1">
               <label className="block text-sm font-medium text-gray-300">

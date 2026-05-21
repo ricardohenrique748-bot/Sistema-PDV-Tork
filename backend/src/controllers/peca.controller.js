@@ -109,7 +109,7 @@ const create = async (req, res, next) => {
 
 const update = async (req, res, next) => {
   try {
-    const { fornecedores, ...data } = req.body;
+    const { fornecedores, categoria, estoqueBaixo, id, createdAt, updatedAt, ...data } = req.body;
     if (data.precoVenda) {
       data.margemLucro = calcMargem(data.precoCompra, data.precoVenda);
     }

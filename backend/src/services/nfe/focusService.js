@@ -341,8 +341,13 @@ async function emitirNF(notaFiscalId) {
   } catch (err) {
     const httpStatus = err.response?.status;
     const body = err.response?.data;
-    const msg422 = body?.mensagem || body?.erros?.[0]?.mensagem || JSON.stringify(body);
-    logger.warn(`[Focus] POST retornou ${httpStatus}: ${msg422}`);
+    logger.warn(`[Focus] POST retornou ${httpStatus}: ${JSON.stringify(body)}`);
+    let msg422 = body?.mensagem || '';
+    if (body?.erros?.length > 0) {
+      const detalhes = body.erros.map(e => e.mensagem || e.campo || JSON.stringify(e)).join(' | ');
+      msg422 = msg422 ? `${msg422}: ${detalhes}` : detalhes;
+    }
+    if (!msg422) msg422 = JSON.stringify(body);
 
     if (httpStatus !== 422) {
       await prisma.notaFiscal.update({

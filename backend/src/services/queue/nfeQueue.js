@@ -5,13 +5,12 @@ let nfeQueue;
 
 function getQueue() {
   if (!nfeQueue) {
+    const redisOpts = process.env.REDIS_URL
+      ? { url: process.env.REDIS_URL, maxRetriesPerRequest: 1, enableOfflineQueue: false, connectTimeout: 2000, lazyConnect: true }
+      : { host: '127.0.0.1', port: 6379, maxRetriesPerRequest: 1, enableOfflineQueue: false, connectTimeout: 2000, lazyConnect: true };
+
     nfeQueue = new Bull('nfe-emission', {
-      redis: process.env.REDIS_URL || {
-        host: '127.0.0.1',
-        port: 6379,
-        maxRetriesPerRequest: 1,
-        enableOfflineQueue: false
-      },
+      redis: redisOpts,
       defaultJobOptions: {
         attempts: 3,
         backoff: { type: 'exponential', delay: 5000 },

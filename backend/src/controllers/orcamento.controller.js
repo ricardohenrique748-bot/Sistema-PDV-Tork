@@ -136,7 +136,6 @@ const excluir = async (req, res, next) => {
   try {
     const orc = await prisma.orcamento.findUnique({ where: { id: req.params.id } });
     if (!orc) return res.status(404).json({ error: 'Orçamento não encontrado.' });
-    if (orc.status === 'CONVERTIDO') return res.status(400).json({ error: 'Orçamento já convertido em venda e não pode ser excluído.' });
     await prisma.orcamento.delete({ where: { id: req.params.id } });
     res.json({ message: 'Orçamento excluído com sucesso.' });
   } catch (err) { next(err); }

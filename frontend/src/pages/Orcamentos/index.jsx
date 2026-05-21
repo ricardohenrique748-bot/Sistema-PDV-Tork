@@ -202,11 +202,9 @@ export default function Orcamentos() {
                             <ShoppingCart size={14} />
                           </Button>
                         )}
-                        {orc.status !== 'CONVERTIDO' && (
-                          <Button size="sm" variant="danger" onClick={() => handleDelete(orc.id)} title="Excluir orçamento">
-                            <Trash2 size={14} />
-                          </Button>
-                        )}
+                        <Button size="sm" variant="danger" onClick={() => handleDelete(orc.id)} title="Excluir orçamento">
+                          <Trash2 size={14} />
+                        </Button>
                       </div>
                     </td>
                   </tr>
